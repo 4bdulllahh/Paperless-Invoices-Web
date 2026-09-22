@@ -20,3 +20,9 @@ export function addDays(isoDate: string, days: number): string {
 export function isOverdue(dueDate: string, today: string): boolean {
   return dueDate < today
 }
+
+/** Whole days from one date to another; negative if `to` is earlier. */
+export function daysBetween(from: string, to: string): number {
+  const ms = Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)
+  return Math.round(ms / 86_400_000)
+}

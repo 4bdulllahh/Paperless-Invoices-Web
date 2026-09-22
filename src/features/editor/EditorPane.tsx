@@ -1,96 +1,174 @@
-import { Building2, ListOrdered, Percent, Plus, QrCode, StickyNote, UserRound } from 'lucide-react'
+import {
+  Building2,
+  CalendarDays,
+  CircleCheck,
+  FilePlus2,
+  ListOrdered,
+  Percent,
+  QrCode,
+  StickyNote,
+  UserRound,
+} from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Collapsible } from '../../components/ui/Collapsible'
-import { TextAreaField, TextField } from '../../components/ui/Field'
-import type { Party } from '../../domain/schema'
+import { TextAreaField } from '../../components/ui/Field'
+import { isPristineDraft } from '../../domain/draft'
+import { formatDate } from '../../domain/format'
+import { buildInvoiceViewModel } from '../../domain/viewModel'
 import { cn } from '../../lib/cn'
 import { useDraftStore } from '../../storage/stores'
+import { BillToSection } from './sections/BillToSection'
+import { FromSection } from './sections/FromSection'
+import { InvoiceSection } from './sections/InvoiceSection'
+import { LineItemsSection } from './sections/LineItemsSection'
+import { PaymentSection } from './sections/PaymentSection'
+import { TaxDiscountSection } from './sections/TaxDiscountSection'
+import { TotalsFooter } from './TotalsFooter'
 
-/**
- * The invoice editor. "Your business" is live and filled in from the business profile;
- * the other sections are wired up in Milestone 5.
- */
-export function EditorPane({ className }: { className?: string }) {
-  const from = useDraftStore((state) => state.invoice?.from)
-  const updateInvoice = useDraftStore((state) => state.updateInvoice)
-  const updateFrom = (patch: Partial<Party>) =>
-    updateInvoice((invoice) => ({ ...invoice, from: { ...invoice.from, ...patch } }))
+type EditorPaneProps = {
+  className?: string
+  /** Opens the Business panel, where the profile and payment details live. */
+  onEditProfile: () => void
+}
+
+/** The invoice being written. Every change is saved to this device as it's made. */
+export function EditorPane({ className, onEditProfile }: EditorPaneProps) {
+  const invoice = useDraftStore((state) => state.invoice)
+  const update = useDraftStore((state) => state.updateInvoice)
+  const startNewInvoice = useDraftStore((state) => state.startNewInvoice)
+  const [confirmingNew, setConfirmingNew] = useState(false)
+  // All the numbers come from the calculation engine, recomputed once per change.
+  const view = useMemo(() => (invoice ? buildInvoiceViewModel(invoice) : null), [invoice])
+
+  if (!invoice || !view) {
+    return (
+      <Card
+        className={cn('flex flex-col items-center justify-center gap-4 p-8 text-center', className)}
+      >
+        <h1 className="font-display text-xl font-semibold tracking-tight">No invoice open</h1>
+        <Button variant="primary" onClick={() => startNewInvoice()}>
+          <FilePlus2 />
+          Start an invoice
+        </Button>
+      </Card>
+    )
+  }
+
+  function newInvoice() {
+    if (invoice && isPristineDraft(invoice)) startNewInvoice()
+    else setConfirmingNew(true)
+  }
+
+  const itemCount = invoice.items.length
+  const discountMeta =
+    invoice.discount.type === 'none'
+      ? ''
+      : invoice.discount.type === 'percent'
+        ? ` · ${invoice.discount.value || 0}% off`
+        : ' · discount'
 
   return (
     <Card className={cn('flex min-h-0 flex-col overflow-hidden', className)}>
-      <div className="border-b border-line px-5 py-4">
-        <h1 className="font-display text-lg font-semibold tracking-tight">Invoice details</h1>
-        <p className="text-sm text-fg-subtle">
-          Your details are filled in from your profile. The other sections arrive in Milestone 5.
-        </p>
+      <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
+        <div className="min-w-0">
+          <h1 className="font-display text-lg font-semibold tracking-tight">Invoice details</h1>
+          <p className="flex items-center gap-1.5 text-sm text-fg-subtle">
+            <CircleCheck className="size-3.5 text-accent" aria-hidden="true" />
+            <span className="sm:hidden">Autosaved</span>
+            <span className="hidden sm:inline">Saved automatically on this device</span>
+          </p>
+        </div>
+        <Button variant="ghost" size="sm" onClick={newInvoice}>
+          <FilePlus2 />
+          New invoice
+        </Button>
       </div>
 
+      {confirmingNew && (
+        <div
+          role="alertdialog"
+          aria-labelledby="new-invoice-title"
+          className="flex flex-col gap-3 border-b border-line bg-accent-soft px-5 py-4 text-sm"
+        >
+          <p id="new-invoice-title">
+            <strong>Start a new invoice?</strong> This one will be cleared from the editor.
+          </p>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={() => {
+                startNewInvoice()
+                setConfirmingNew(false)
+              }}
+            >
+              Start new invoice
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setConfirmingNew(false)}>
+              Keep editing
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-3 sm:p-4">
-        <Collapsible title="Your business" icon={<Building2 />} defaultOpen>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <TextField
-              label="Business name"
-              placeholder="Acme Studio"
-              value={from?.name ?? ''}
-              onChange={(e) => updateFrom({ name: e.target.value })}
-              disabled={!from}
-            />
-            <TextField
-              label="Email"
-              type="email"
-              placeholder="hello@acme.studio"
-              value={from?.email ?? ''}
-              onChange={(e) => updateFrom({ email: e.target.value })}
-              disabled={!from}
-            />
-          </div>
+        <Collapsible
+          title="Bill to"
+          icon={<UserRound />}
+          meta={invoice.to.name || 'Not set'}
+          defaultOpen
+        >
+          <BillToSection invoice={invoice} update={update} />
         </Collapsible>
 
-        <Collapsible title="Bill to" icon={<UserRound />} defaultOpen>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <TextField label="Client name" placeholder="Northwind Ltd" />
-            <TextField label="Client email" type="email" placeholder="accounts@northwind.com" />
-          </div>
+        <Collapsible
+          title="Items"
+          icon={<ListOrdered />}
+          meta={`${itemCount} ${itemCount === 1 ? 'item' : 'items'}`}
+          defaultOpen
+        >
+          <LineItemsSection invoice={invoice} update={update} lines={view.lines} />
         </Collapsible>
 
-        <Collapsible title="Line items" icon={<ListOrdered />} meta="1 item" defaultOpen>
-          <div className="grid grid-cols-[1fr_4.5rem_6.5rem] gap-2">
-            <TextField label="Description" placeholder="Website design" />
-            <TextField label="Qty" inputMode="decimal" placeholder="1" />
-            <TextField label="Price" inputMode="decimal" placeholder="0.00" />
-          </div>
-          <Button variant="ghost" size="sm" className="mt-3 -ml-2">
-            <Plus />
-            Add item
-          </Button>
+        <Collapsible
+          title="Tax & discounts"
+          icon={<Percent />}
+          meta={`${invoice.taxLabel || 'Tax'}${discountMeta}`}
+        >
+          <TaxDiscountSection invoice={invoice} update={update} />
         </Collapsible>
 
-        <Collapsible title="Tax & discounts" icon={<Percent />}>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <TextField label="Tax rate (%)" inputMode="decimal" placeholder="20" />
-            <TextField label="Discount (%)" inputMode="decimal" placeholder="0" />
-          </div>
+        <Collapsible
+          title="Number, dates & currency"
+          icon={<CalendarDays />}
+          meta={`Due ${formatDate(invoice.dueDate, invoice.locale)}`}
+        >
+          <InvoiceSection invoice={invoice} update={update} />
+        </Collapsible>
+
+        <Collapsible title="From" icon={<Building2 />} meta={invoice.from.name || 'Not set'}>
+          <FromSection invoice={invoice} update={update} onEditProfile={onEditProfile} />
         </Collapsible>
 
         <Collapsible title="Payment" icon={<QrCode />}>
-          <TextField
-            label="Payment link"
-            type="url"
-            placeholder="https://paypal.me/acme"
-            hint="Printed on the invoice as a QR code."
+          <PaymentSection onEditProfile={onEditProfile} />
+        </Collapsible>
+
+        <Collapsible title="Notes" icon={<StickyNote />} meta={invoice.notes.trim() ? 'Added' : ''}>
+          <TextAreaField
+            label="Notes to client"
+            optional
+            placeholder="Thank you for your business!"
+            hint="Printed at the bottom of the invoice: thanks, terms or a reference."
+            value={invoice.notes}
+            onChange={(e) => update((inv) => ({ ...inv, notes: e.target.value }))}
           />
         </Collapsible>
-
-        <Collapsible title="Notes" icon={<StickyNote />}>
-          <TextAreaField label="Notes to client" placeholder="Thank you for your business!" />
-        </Collapsible>
       </div>
 
-      <div className="flex items-center justify-between border-t border-line bg-surface-muted px-5 py-3.5">
-        <span className="text-sm font-medium text-fg-muted">Balance due</span>
-        <span className="font-display text-xl font-semibold tabular-nums">$0.00</span>
-      </div>
+      <TotalsFooter rows={view.totals} />
     </Card>
   )
 }

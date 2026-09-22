@@ -6,7 +6,7 @@ Create professional A4 invoices, preview them live across multiple templates, ad
 
 **Live:** https://paperless-bay-zeta.vercel.app
 
-> **Status:** early development (Milestone 4 — onboarding, business profile and settings).
+> **Status:** early development (Milestone 5 — invoice editor).
 
 ## Principles
 
@@ -62,7 +62,7 @@ npm run dev        # start the dev server at http://localhost:5173
 - [x] **M2** Domain core (money, tax & discount engine)
 - [x] **M3** Storage layer (persistence, migrations, backup)
 - [x] **M4** Onboarding & settings
-- [ ] **M5** Invoice editor
+- [x] **M5** Invoice editor
 - [ ] **M6** PDF templates & live preview
 - [ ] **M7** QR payments
 - [ ] **M8** Export & history

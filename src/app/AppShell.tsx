@@ -2,6 +2,7 @@ import { Eye, PenLine } from 'lucide-react'
 import { useState } from 'react'
 import { SegmentedControl } from '../components/ui/SegmentedControl'
 import { BusinessPanel } from '../features/business/BusinessPanel'
+import { ClientsPanel } from '../features/clients/ClientsPanel'
 import { EditorPane } from '../features/editor/EditorPane'
 import { OnboardingWizard } from '../features/onboarding/OnboardingWizard'
 import { PreviewPane } from '../features/preview/PreviewPane'
@@ -80,11 +81,21 @@ export function AppShell() {
 
           <main className="grid min-h-0 min-w-0 flex-1 gap-3 lg:grid-cols-[minmax(380px,2fr)_minmax(0,3fr)]">
             {onInvoice ? (
-              <EditorPane className={cn(mobileView === 'preview' && 'max-lg:hidden')} />
+              <EditorPane
+                className={cn(mobileView === 'preview' && 'max-lg:hidden')}
+                onEditProfile={() => setPanel('business')}
+              />
             ) : panel === 'settings' ? (
               <SettingsPanel />
             ) : panel === 'business' ? (
               <BusinessPanel />
+            ) : panel === 'clients' ? (
+              <ClientsPanel
+                onUseClient={() => {
+                  setPanel('invoice')
+                  setMobileView('edit')
+                }}
+              />
             ) : (
               <PlaceholderPanel item={activeItem} />
             )}

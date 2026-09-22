@@ -1,11 +1,10 @@
-import { useState } from 'react'
 import { CraneMark } from '../../components/brand/CraneMark'
 import { Badge } from '../../components/ui/Badge'
 import { Card } from '../../components/ui/Card'
 import { SegmentedControl } from '../../components/ui/SegmentedControl'
+import type { TemplateId } from '../../domain/schema'
 import { cn } from '../../lib/cn'
-
-export type TemplateId = 'modern' | 'classic' | 'minimal'
+import { useDraftStore } from '../../storage/stores'
 
 const TEMPLATE_OPTIONS = [
   { value: 'modern', label: 'Modern' },
@@ -18,7 +17,11 @@ const TEMPLATE_OPTIONS = [
  * The page is always scaled to fit the pane, whatever its size.
  */
 export function PreviewPane({ className }: { className?: string }) {
-  const [template, setTemplate] = useState<TemplateId>('modern')
+  // The template belongs to the invoice (new invoices start with the default from Settings).
+  const template = useDraftStore((state) => state.invoice?.templateId ?? 'modern')
+  const updateInvoice = useDraftStore((state) => state.updateInvoice)
+  const setTemplate = (templateId: TemplateId) =>
+    updateInvoice((invoice) => ({ ...invoice, templateId }))
 
   return (
     <Card className={cn('flex min-h-0 flex-col overflow-hidden', className)}>

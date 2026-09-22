@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addDays, isOverdue, todayIso } from './dates'
+import { addDays, daysBetween, isOverdue, todayIso } from './dates'
 
 describe('addDays', () => {
   it.each([
@@ -30,5 +30,17 @@ describe('isOverdue', () => {
     expect(isOverdue('2026-09-22', '2026-09-23')).toBe(true)
     expect(isOverdue('2026-09-23', '2026-09-23')).toBe(false)
     expect(isOverdue('2026-10-01', '2026-09-23')).toBe(false)
+  })
+})
+
+describe('daysBetween', () => {
+  it.each([
+    ['2026-09-23', '2026-10-07', 14],
+    ['2026-09-23', '2026-09-23', 0],
+    ['2026-10-07', '2026-09-23', -14],
+    ['2028-02-01', '2028-03-01', 29], // leap year
+    ['2026-03-28', '2026-03-30', 2], // across a daylight-saving change
+  ])('%s → %s is %i days', (from, to, days) => {
+    expect(daysBetween(from, to)).toBe(days)
   })
 })

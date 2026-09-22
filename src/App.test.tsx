@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import App from './App'
 import { THEME_STORAGE_KEY } from './hooks/useTheme'
 import { clearAllData } from './storage/backup'
-import { useProfileStore } from './storage/stores'
+import { useDraftStore, useProfileStore } from './storage/stores'
 
 beforeEach(() => clearAllData())
 
@@ -11,21 +11,22 @@ describe('first visit', () => {
   it('opens the setup wizard over an inert workspace', () => {
     render(<App />)
     expect(screen.getByRole('dialog', { name: 'Set up Paperless' })).toBeInTheDocument()
-    expect(
-      screen.getByRole('heading', { name: 'Invoice details' }).closest('[inert]'),
-    ).not.toBeNull()
+    expect(screen.getByRole('heading', { name: 'Preview' }).closest('[inert]')).not.toBeNull()
   })
 
   it('shows the workspace once setup is done', () => {
     useProfileStore.getState().completeOnboarding()
     render(<App />)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Invoice details' }).closest('[inert]')).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Preview' }).closest('[inert]')).toBeNull()
   })
 })
 
 describe('App shell', () => {
-  beforeEach(() => useProfileStore.getState().completeOnboarding())
+  beforeEach(() => {
+    useProfileStore.getState().completeOnboarding()
+    useDraftStore.getState().startNewInvoice()
+  })
 
   it('opens on the invoice editor with a preview', () => {
     render(<App />)
