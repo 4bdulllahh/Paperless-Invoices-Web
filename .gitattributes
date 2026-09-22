@@ -1,0 +1,8 @@
+# Normalise line endings so Windows and Linux (Vercel, CI) agree
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary

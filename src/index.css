@@ -1,0 +1,36 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/space-grotesk';
+
+/*
+ * Paperless design tokens.
+ * Palette: https://coolors.co/palette/fffcf2-ccc5b9-403d39-252422-eb5e28
+ * Milestone 1 expands these (dark mode, shadows, component tokens).
+ */
+@theme {
+  --color-cream: #fffcf2;
+  --color-sand: #ccc5b9;
+  --color-olive: #403d39;
+  --color-ink: #252422;
+  --color-flame: #eb5e28;
+
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Space Grotesk Variable', ui-sans-serif, system-ui, sans-serif;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-cream font-sans text-ink antialiased;
+  }
+}
