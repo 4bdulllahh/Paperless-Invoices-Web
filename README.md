@@ -4,6 +4,8 @@ Free, private invoicing that runs entirely in your browser.
 
 Create professional A4 invoices, preview them live across multiple templates, add a payment QR code, and download a crisp PDF. No account, no server and no database. Your business details and invoice history are stored only on your device.
 
+**Live:** https://paperless-bay-zeta.vercel.app
+
 > **Status:** early development (Milestone 0 — project skeleton).
 
 ## Principles
