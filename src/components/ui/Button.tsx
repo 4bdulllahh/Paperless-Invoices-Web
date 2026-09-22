@@ -5,6 +5,8 @@ const variants = {
   primary: 'bg-accent text-accent-fg shadow-elev-1 hover:bg-accent-hover hover:-translate-y-px',
   secondary: 'border border-line-strong bg-surface text-fg hover:bg-surface-muted',
   ghost: 'text-fg-muted hover:bg-surface-muted hover:text-fg',
+  /** Destructive actions, e.g. deleting data. */
+  danger: 'border border-accent/60 bg-accent-soft text-fg hover:bg-accent hover:text-accent-fg',
 } as const
 
 const sizes = {

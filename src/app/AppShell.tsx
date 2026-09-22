@@ -3,11 +3,13 @@ import { useState } from 'react'
 import { SegmentedControl } from '../components/ui/SegmentedControl'
 import { EditorPane } from '../features/editor/EditorPane'
 import { PreviewPane } from '../features/preview/PreviewPane'
+import { SettingsPanel } from '../features/settings/SettingsPanel'
 import { useTheme } from '../hooks/useTheme'
 import { cn } from '../lib/cn'
 import { NAV_ITEMS, type PanelId } from './navigation'
 import { NavRail } from './NavRail'
 import { PlaceholderPanel } from './PlaceholderPanel'
+import { StorageIssueBanner } from './StorageIssueBanner'
 import { TopBar } from './TopBar'
 
 type MobileView = 'edit' | 'preview'
@@ -49,6 +51,7 @@ export function AppShell() {
   return (
     <div className="flex h-dvh flex-col gap-2 p-2 sm:gap-3 sm:p-3">
       <TopBar theme={resolved} onToggleTheme={toggle} />
+      <StorageIssueBanner />
 
       {onInvoice && (
         <SegmentedControl
@@ -71,6 +74,8 @@ export function AppShell() {
         <main className="grid min-h-0 min-w-0 flex-1 gap-3 lg:grid-cols-[minmax(380px,2fr)_minmax(0,3fr)]">
           {onInvoice ? (
             <EditorPane className={cn(mobileView === 'preview' && 'max-lg:hidden')} />
+          ) : panel === 'settings' ? (
+            <SettingsPanel />
           ) : (
             <PlaceholderPanel item={activeItem} />
           )}

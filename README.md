@@ -6,7 +6,7 @@ Create professional A4 invoices, preview them live across multiple templates, ad
 
 **Live:** https://paperless-bay-zeta.vercel.app
 
-> **Status:** early development (Milestone 2 — calculation engine).
+> **Status:** early development (Milestone 3 — storage, backup and restore).
 
 ## Principles
 
@@ -44,23 +44,23 @@ npm run dev        # start the dev server at http://localhost:5173
 
 ## Scripts
 
-| Command                 | What it does                                                      |
-| ----------------------- | ----------------------------------------------------------------- |
-| `npm run dev`           | Start the Vite dev server                                         |
-| `npm run build`         | Type-check and build for production into `dist/`                  |
-| `npm run preview`       | Serve the production build locally                                |
-| `npm test`              | Run unit tests once (`npm run test:watch` to watch)               |
-| `npm run test:coverage` | Run tests with coverage; `src/domain` must stay at 100%           |
-| `npm run lint`          | Lint with oxlint                                                  |
-| `npm run format`        | Format all files with Prettier                                    |
-| `npm run check`         | Lint, format check, type-check and test — the same checks CI runs |
+| Command                 | What it does                                                         |
+| ----------------------- | -------------------------------------------------------------------- |
+| `npm run dev`           | Start the Vite dev server                                            |
+| `npm run build`         | Type-check and build for production into `dist/`                     |
+| `npm run preview`       | Serve the production build locally                                   |
+| `npm test`              | Run unit tests once (`npm run test:watch` to watch)                  |
+| `npm run test:coverage` | Run tests with coverage; `src/domain` and `src/storage` stay at 100% |
+| `npm run lint`          | Lint with oxlint                                                     |
+| `npm run format`        | Format all files with Prettier                                       |
+| `npm run check`         | Lint, format check, type-check and test — the same checks CI runs    |
 
 ## Roadmap
 
 - [x] **M0** Environment & skeleton
 - [x] **M1** Design system & 3-pane app shell
 - [x] **M2** Domain core (money, tax & discount engine)
-- [ ] **M3** Storage layer (persistence, migrations, backup)
+- [x] **M3** Storage layer (persistence, migrations, backup)
 - [ ] **M4** Onboarding & settings
 - [ ] **M5** Invoice editor
 - [ ] **M6** PDF templates & live preview

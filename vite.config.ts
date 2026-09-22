@@ -12,9 +12,9 @@ export default defineConfig({
     css: false,
     coverage: {
       provider: 'v8',
-      // The calculation core must stay fully tested; UI coverage is tracked but not enforced.
-      include: ['src/domain/**/*.ts'],
-      exclude: ['src/domain/**/*.test.ts'],
+      // The calculation core and storage layer must stay fully tested; UI coverage isn't enforced.
+      include: ['src/domain/**/*.ts', 'src/storage/**/*.ts'],
+      exclude: ['**/*.test.ts'],
       thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 },
     },
   },

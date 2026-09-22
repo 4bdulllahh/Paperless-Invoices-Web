@@ -1,4 +1,6 @@
 import '@testing-library/jest-dom/vitest'
+// In-memory IndexedDB for jsdom; must load before any module opens a database.
+import 'fake-indexeddb/auto'
 import { cleanup } from '@testing-library/react'
 import { afterEach, beforeEach, vi } from 'vitest'
 
