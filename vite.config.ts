@@ -6,6 +6,11 @@ import { defineConfig } from 'vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  build: {
+    // The PDF engine (react-pdf, pdf.js) is one large chunk by nature. It is loaded on demand,
+    // never with the first page, so its size doesn't affect start-up.
+    chunkSizeWarningLimit: 2000,
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],

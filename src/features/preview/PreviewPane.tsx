@@ -1,3 +1,4 @@
+import { LoaderCircle, TriangleAlert } from 'lucide-react'
 import { CraneMark } from '../../components/brand/CraneMark'
 import { Badge } from '../../components/ui/Badge'
 import { Card } from '../../components/ui/Card'
@@ -5,6 +6,7 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl'
 import type { TemplateId } from '../../domain/schema'
 import { cn } from '../../lib/cn'
 import { useDraftStore } from '../../storage/stores'
+import { useLivePdfPreview } from './useLivePdfPreview'
 
 const TEMPLATE_OPTIONS = [
   { value: 'modern', label: 'Modern' },
@@ -12,23 +14,38 @@ const TEMPLATE_OPTIONS = [
   { value: 'minimal', label: 'Minimal' },
 ] as const
 
+/** Each page is scaled so a whole A4 page fits the pane; longer invoices scroll page by page. */
+const PAGE_SIZE = 'w-[min(100cqw,calc(100cqh*210/297))]'
+
 /**
- * Preview column. Shows a stand-in A4 page until the real PDF preview arrives in Milestone 6.
- * The page is always scaled to fit the pane, whatever its size.
+ * The real PDF, redrawn as the invoice changes: exactly what will be downloaded.
+ * A stand-in page shows while the PDF engine loads for the first time.
  */
 export function PreviewPane({ className }: { className?: string }) {
   // The template belongs to the invoice (new invoices start with the default from Settings).
   const template = useDraftStore((state) => state.invoice?.templateId ?? 'modern')
+  const number = useDraftStore((state) => state.invoice?.number ?? '')
   const updateInvoice = useDraftStore((state) => state.updateInvoice)
   const setTemplate = (templateId: TemplateId) =>
     updateInvoice((invoice) => ({ ...invoice, templateId }))
+  const { pages, status } = useLivePdfPreview()
 
   return (
     <Card className={cn('flex min-h-0 flex-col overflow-hidden', className)}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3 sm:px-5">
         <div className="flex items-center gap-2">
           <h2 className="font-display text-lg font-semibold tracking-tight">Preview</h2>
-          <Badge>A4</Badge>
+          <Badge>A4{pages && pages.length > 1 ? ` · ${pages.length} pages` : ''}</Badge>
+          <span
+            role="status"
+            className={cn(
+              'flex items-center gap-1 text-xs text-fg-subtle transition-opacity duration-300',
+              status === 'updating' || status === 'loading' ? 'opacity-100' : 'opacity-0',
+            )}
+          >
+            <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
+            {status === 'loading' ? 'Preparing preview…' : 'Updating…'}
+          </span>
         </div>
         <SegmentedControl
           label="Invoice template"
@@ -39,8 +56,35 @@ export function PreviewPane({ className }: { className?: string }) {
         />
       </div>
 
-      <div className="[container-type:size] grid min-h-0 flex-1 place-items-center bg-surface-sunken p-4 sm:p-6">
-        <SkeletonPage template={template} />
+      <div
+        aria-busy={status === 'loading' || status === 'updating'}
+        className="[container-type:size] min-h-0 flex-1 overflow-y-auto overscroll-contain bg-surface-sunken p-4 sm:p-6"
+      >
+        {status === 'error' && (
+          <p className="mx-auto mb-4 flex max-w-sm items-center gap-2 rounded-md bg-accent-soft px-3 py-2 text-sm">
+            <TriangleAlert className="size-4 shrink-0 text-accent" aria-hidden="true" />
+            The preview couldn’t be drawn. Your invoice is still saved; try editing it again.
+          </p>
+        )}
+        <div className="flex flex-col items-center gap-4">
+          {pages ? (
+            pages.map((page, index) => (
+              <img
+                key={page.url}
+                src={page.url}
+                width={page.width}
+                height={page.height}
+                alt={`Invoice ${number}, page ${index + 1} of ${pages.length}`}
+                className={cn(
+                  PAGE_SIZE,
+                  'h-auto rounded-sm bg-white shadow-elev-2 ring-1 ring-ink/5 dark:ring-cream/15',
+                )}
+              />
+            ))
+          ) : (
+            <SkeletonPage template={template} />
+          )}
+        </div>
       </div>
     </Card>
   )
@@ -60,8 +104,11 @@ function SkeletonPage({ template }: { template: TemplateId }) {
   return (
     <div
       role="img"
-      aria-label={`Sample invoice page, ${template} template`}
-      className="@container aspect-[210/297] w-[min(100cqw,calc(100cqh*210/297))] overflow-hidden rounded-sm bg-white text-ink shadow-elev-2 ring-1 ring-ink/5 dark:ring-cream/15"
+      aria-label="Loading preview"
+      className={cn(
+        PAGE_SIZE,
+        '@container aspect-[210/297] animate-pulse overflow-hidden rounded-sm bg-white text-ink shadow-elev-2 ring-1 ring-ink/5 dark:ring-cream/15',
+      )}
     >
       <div
         className={cn(

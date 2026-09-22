@@ -6,7 +6,7 @@ Create professional A4 invoices, preview them live across multiple templates, ad
 
 **Live:** https://paperless-bay-zeta.vercel.app
 
-> **Status:** early development (Milestone 5 — invoice editor).
+> **Status:** early development (Milestone 6 — PDF templates and live preview).
 
 ## Principles
 
@@ -16,12 +16,14 @@ Create professional A4 invoices, preview them live across multiple templates, ad
 
 ## Tech stack
 
-| Area      | Choice                                                                           |
-| --------- | -------------------------------------------------------------------------------- |
-| Framework | React 19 + TypeScript (strict) + Vite                                            |
-| Styling   | Tailwind CSS v4, self-hosted Inter & Space Grotesk                               |
-| Quality   | oxlint, Prettier, Vitest + Testing Library, GitHub Actions CI                    |
-| Planned   | Zustand + Zod (storage), @react-pdf/renderer + pdf.js (PDF), qrcode (payment QR) |
+| Area      | Choice                                                        |
+| --------- | ------------------------------------------------------------- |
+| Framework | React 19 + TypeScript (strict) + Vite                         |
+| Styling   | Tailwind CSS v4, self-hosted Inter & Space Grotesk            |
+| Quality   | oxlint, Prettier, Vitest + Testing Library, GitHub Actions CI |
+| Data      | Zustand + Zod, localStorage and IndexedDB                     |
+| PDF       | @react-pdf/renderer in a Web Worker, previewed with pdf.js    |
+| Planned   | qrcode (payment QR)                                           |
 
 ## How totals are calculated
 
@@ -32,6 +34,12 @@ The calculation engine in [`src/domain`](src/domain) is plain TypeScript with no
 - **Discounts before tax.** An invoice-level discount is split across lines in proportion, so each tax rate is charged on the correct amount, and the shares always add up exactly.
 - **Tax per rate.** Tax is rounded once per rate on the combined amount, not line by line. Both tax-exclusive (added on top) and tax-inclusive (already in the price) modes are supported.
 - **Rounding** is half away from zero at each step.
+
+## How the PDF preview works
+
+Each template is written once with `@react-pdf/renderer` and produces a real vector PDF (selectable text, exact A4, automatic page breaks with a repeating table header). The preview shows that same file: the PDF is built in a Web Worker, drawn page by page with pdf.js, and redrawn a moment after you stop typing, so the editor never stutters and the preview can never differ from the download. The PDF engine loads on demand and never slows the first page load.
+
+Fonts embedded in PDFs are unmodified OFL files in [`public/fonts`](public/fonts); symbols a display font lacks (e.g. ₹ in Libre Baskerville) fall back to Inter character by character.
 
 ## Getting started
 
@@ -63,7 +71,7 @@ npm run dev        # start the dev server at http://localhost:5173
 - [x] **M3** Storage layer (persistence, migrations, backup)
 - [x] **M4** Onboarding & settings
 - [x] **M5** Invoice editor
-- [ ] **M6** PDF templates & live preview
+- [x] **M6** PDF templates & live preview
 - [ ] **M7** QR payments
 - [ ] **M8** Export & history
 - [ ] **M9** Polish, accessibility & PWA

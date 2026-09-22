@@ -22,8 +22,10 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.unstubAllGlobals()
+  // PDF tests run in a plain Node environment, without a DOM.
+  if (typeof document === 'undefined') return
   cleanup()
   localStorage.clear()
   delete document.documentElement.dataset.theme
-  vi.unstubAllGlobals()
 })
