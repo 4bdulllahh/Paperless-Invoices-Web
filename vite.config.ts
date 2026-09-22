@@ -10,5 +10,12 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: false,
+    coverage: {
+      provider: 'v8',
+      // The calculation core must stay fully tested; UI coverage is tracked but not enforced.
+      include: ['src/domain/**/*.ts'],
+      exclude: ['src/domain/**/*.test.ts'],
+      thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 },
+    },
   },
 })
