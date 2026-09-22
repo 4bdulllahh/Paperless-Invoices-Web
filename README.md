@@ -6,7 +6,7 @@ Create professional A4 invoices, preview them live across multiple templates, ad
 
 **Live:** https://paperless-bay-zeta.vercel.app
 
-> **Status:** early development (Milestone 0 — project skeleton).
+> **Status:** early development (Milestone 1 — design system and workspace layout).
 
 ## Principles
 
@@ -47,7 +47,7 @@ npm run dev        # start the dev server at http://localhost:5173
 ## Roadmap
 
 - [x] **M0** Environment & skeleton
-- [ ] **M1** Design system & 3-pane app shell
+- [x] **M1** Design system & 3-pane app shell
 - [ ] **M2** Domain core (money, tax & discount engine)
 - [ ] **M3** Storage layer (persistence, migrations, backup)
 - [ ] **M4** Onboarding & settings

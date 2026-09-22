@@ -2,10 +2,12 @@
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/space-grotesk';
 
+/* `dark:` utilities follow the resolved theme on <html data-theme>, not just the OS setting. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
 /*
- * Paperless design tokens.
- * Palette: https://coolors.co/palette/fffcf2-ccc5b9-403d39-252422-eb5e28
- * Milestone 1 expands these (dark mode, shadows, component tokens).
+ * Brand palette: https://coolors.co/palette/fffcf2-ccc5b9-403d39-252422-eb5e28
+ * Raw colours are for templates and brand moments; UI code uses the semantic tokens below.
  */
 @theme {
   --color-cream: #fffcf2;
@@ -23,6 +25,64 @@
   --radius-xl: 28px;
 }
 
+/* Semantic tokens: light theme */
+:root {
+  color-scheme: light;
+  --canvas: #f2eee4; /* 25% sand over cream */
+  --surface: #fffcf2;
+  --surface-muted: #f8f4ea;
+  --surface-sunken: #ebe6db;
+  --line: #e0dbd0;
+  --line-strong: #ccc5b9;
+  --fg: #252422;
+  --fg-muted: #403d39;
+  --fg-subtle: #6b665f;
+  --accent: #eb5e28;
+  --accent-hover: #d9511d;
+  --accent-fg: #252422;
+  --accent-soft: #fbe3d6;
+  --elev-1: 0 1px 2px rgb(37 36 34 / 0.05), 0 4px 16px rgb(37 36 34 / 0.05);
+  --elev-2: 0 2px 6px rgb(37 36 34 / 0.06), 0 16px 40px rgb(37 36 34 / 0.1);
+}
+
+/* Semantic tokens: dark theme */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --canvas: #1d1c1b;
+  --surface: #2b2927;
+  --surface-muted: #33312e;
+  --surface-sunken: #252422;
+  --line: #403d39;
+  --line-strong: #57534d;
+  --fg: #fffcf2;
+  --fg-muted: #ccc5b9;
+  --fg-subtle: #a39c91;
+  --accent: #eb5e28;
+  --accent-hover: #f0733f;
+  --accent-fg: #252422;
+  --accent-soft: #4a2f22;
+  --elev-1: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px rgb(0 0 0 / 0.2);
+  --elev-2: 0 2px 6px rgb(0 0 0 / 0.35), 0 16px 40px rgb(0 0 0 / 0.35);
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --shadow-elev-1: var(--elev-1);
+  --shadow-elev-2: var(--elev-2);
+}
+
 @layer base {
   html,
   body,
@@ -31,6 +91,28 @@
   }
 
   body {
-    @apply bg-cream font-sans text-ink antialiased;
+    @apply overflow-hidden bg-canvas font-sans text-fg antialiased;
+  }
+
+  ::selection {
+    @apply bg-accent-soft text-fg;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-accent;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
