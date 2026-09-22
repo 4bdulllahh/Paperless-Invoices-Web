@@ -6,7 +6,7 @@ Create professional A4 invoices, preview them live across multiple templates, ad
 
 **Live:** https://paperless-bay-zeta.vercel.app
 
-> **Status:** early development (Milestone 6 — PDF templates and live preview).
+> **Status:** early development (Milestone 7 — payment QR codes).
 
 ## Principles
 
@@ -23,7 +23,7 @@ Create professional A4 invoices, preview them live across multiple templates, ad
 | Quality   | oxlint, Prettier, Vitest + Testing Library, GitHub Actions CI |
 | Data      | Zustand + Zod, localStorage and IndexedDB                     |
 | PDF       | @react-pdf/renderer in a Web Worker, previewed with pdf.js    |
-| Planned   | qrcode (payment QR)                                           |
+| QR codes  | qrcode, drawn as vector shapes in the PDF                     |
 
 ## How totals are calculated
 
@@ -40,6 +40,18 @@ The calculation engine in [`src/domain`](src/domain) is plain TypeScript with no
 Each template is written once with `@react-pdf/renderer` and produces a real vector PDF (selectable text, exact A4, automatic page breaks with a repeating table header). The preview shows that same file: the PDF is built in a Web Worker, drawn page by page with pdf.js, and redrawn a moment after you stop typing, so the editor never stutters and the preview can never differ from the download. The PDF engine loads on demand and never slows the first page load.
 
 Fonts embedded in PDFs are unmodified OFL files in [`public/fonts`](public/fonts); symbols a display font lacks (e.g. ₹ in Libre Baskerville) fall back to Inter character by character.
+
+## Payment QR codes
+
+Each invoice can carry a QR code for the exact balance due, chosen in Business → Getting paid:
+
+| Option          | What scanning it does                                                                   | Added to     |
+| --------------- | --------------------------------------------------------------------------------------- | ------------ |
+| Payment link    | Opens your PayPal, Stripe or Wise page                                                  | Any invoice  |
+| UPI             | Opens any UPI app with your UPI ID, the amount and the invoice number filled in         | INR invoices |
+| SEPA (GiroCode) | Starts a bank transfer with your IBAN, the amount and the invoice number, per EPC069-12 | EUR invoices |
+
+IBANs are checked with the mod-97 checksum before they're saved. The code is left off when nothing is due, and the editor explains why an invoice has no code. Tests decode every generated code back to its exact text.
 
 ## Getting started
 
@@ -72,7 +84,7 @@ npm run dev        # start the dev server at http://localhost:5173
 - [x] **M4** Onboarding & settings
 - [x] **M5** Invoice editor
 - [x] **M6** PDF templates & live preview
-- [ ] **M7** QR payments
+- [x] **M7** QR payments
 - [ ] **M8** Export & history
 - [ ] **M9** Polish, accessibility & PWA
 - [ ] **M10** Production release

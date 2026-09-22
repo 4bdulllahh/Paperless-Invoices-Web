@@ -13,11 +13,34 @@ import {
  * and imported backups are checked against before use.
  */
 
+/** What the QR code on an invoice does when scanned, if there is one. */
+export const QR_METHODS = ['link', 'upi', 'sepa', 'none'] as const
+
+/**
+ * How clients pay. The QR details are plain strings here: a mistyped IBAN only means no QR code,
+ * never a profile that fails to load.
+ */
 export const paymentDetailsSchema = z.object({
   /** Free text printed on invoices, e.g. bank name, account number, IBAN. */
   instructions: z.string(),
   /** Optional https link a client can pay at (PayPal, Stripe, Wise…). */
   link: z.string().trim(),
+  qr: z.enum(QR_METHODS),
+  /** UPI ID for rupee invoices, e.g. acmestudio@okhdfcbank. */
+  upiId: z.string().trim(),
+  /** Account for SEPA QR codes on euro invoices. */
+  iban: z.string().trim(),
+  /** Optional within the SEPA area. */
+  bic: z.string().trim(),
+})
+
+export const emptyPaymentDetails = (): PaymentDetails => ({
+  instructions: '',
+  link: '',
+  qr: 'link',
+  upiId: '',
+  iban: '',
+  bic: '',
 })
 
 export const businessProfileSchema = z.object({
@@ -85,6 +108,7 @@ export const historyEntrySchema = z.object({
 })
 
 export type PaymentDetails = z.infer<typeof paymentDetailsSchema>
+export type QrMethod = (typeof QR_METHODS)[number]
 export type BusinessProfile = z.infer<typeof businessProfileSchema>
 export type Logo = z.infer<typeof logoSchema>
 export type Settings = z.infer<typeof settingsSchema>

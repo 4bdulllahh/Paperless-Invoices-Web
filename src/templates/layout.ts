@@ -1,4 +1,5 @@
 import type { Styles } from '@react-pdf/renderer'
+import type { PaymentQr } from '../domain/paymentQr'
 import type { Logo, PaymentDetails } from '../domain/records'
 import type { InvoiceViewModel, LineView, PartyView } from '../domain/viewModel'
 
@@ -7,6 +8,8 @@ export type TemplateProps = {
   view: InvoiceViewModel
   logo: Logo | null
   payment: PaymentDetails
+  /** Only when this invoice can carry one. */
+  qr: PaymentQr | null
 }
 
 /** Print colours: the brand palette, tuned for paper. */

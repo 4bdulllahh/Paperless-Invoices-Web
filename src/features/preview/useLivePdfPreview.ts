@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { buildInvoiceViewModel } from '../../domain/viewModel'
 import { useHydrated } from '../../hooks/useHydrated'
 import type { PreviewPage } from '../../services/pdf'
 import { useDraftStore, useLogoStore, useProfileStore } from '../../storage/stores'
+import { buildTemplateProps } from '../../templates/props'
 
 export type PreviewStatus = 'loading' | 'ready' | 'updating' | 'error'
 
@@ -35,7 +35,7 @@ export function useLivePdfPreview() {
       setStatus((current) => (current === 'loading' ? 'loading' : 'updating'))
       try {
         const { renderPreview } = await import('../../services/pdf')
-        const next = await renderPreview({ view: buildInvoiceViewModel(invoice), logo, payment })
+        const next = await renderPreview(buildTemplateProps(invoice, logo, payment))
         if (request !== latestRequest.current) {
           next.forEach((page) => URL.revokeObjectURL(page.url))
           return

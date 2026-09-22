@@ -48,9 +48,14 @@ describe('profile store', () => {
   it('updates payment details', () => {
     useProfileStore.getState().updatePayment({ link: 'https://pay.example.com/acme' })
     useProfileStore.getState().updatePayment({ instructions: 'IBAN …' })
+    useProfileStore.getState().updatePayment({ qr: 'sepa', iban: 'DE89 3704 0044 0532 0130 00' })
     expect(useProfileStore.getState().payment).toEqual({
       instructions: 'IBAN …',
       link: 'https://pay.example.com/acme',
+      qr: 'sepa',
+      upiId: '',
+      iban: 'DE89 3704 0044 0532 0130 00',
+      bic: '',
     })
   })
 
@@ -76,21 +81,39 @@ describe('profile store', () => {
   })
 })
 
-describe('profile upgrade from version 1', () => {
+describe('profile upgrades', () => {
   afterEach(() => vi.resetModules())
 
-  it('adds empty payment details and keeps everything else', async () => {
-    const v1 = { business: { ...party(), name: 'Old Co' }, onboardingComplete: true }
-    localStorage.setItem('paperless:profile', JSON.stringify({ state: v1, version: 1 }))
+  async function loadSaved(state: object, version: number) {
+    localStorage.setItem('paperless:profile', JSON.stringify({ state, version }))
     vi.resetModules()
-
     const { useProfileStore: fresh } = await import('./stores')
+    expect(JSON.parse(localStorage.getItem('paperless:profile')!).version).toBe(3)
+    return fresh.getState()
+  }
 
-    expect(fresh.getState()).toMatchObject({
+  it('adds empty payment details to version 1 and keeps everything else', async () => {
+    const v1 = { business: { ...party(), name: 'Old Co' }, onboardingComplete: true }
+    expect(await loadSaved(v1, 1)).toMatchObject({
       ...v1,
-      payment: { instructions: '', link: '' },
+      payment: { instructions: '', link: '', qr: 'link', upiId: '', iban: '', bic: '' },
     })
-    expect(JSON.parse(localStorage.getItem('paperless:profile')!).version).toBe(2)
+  })
+
+  it('gives a version 2 payment link the QR code it was promised', async () => {
+    const v2 = {
+      business: { ...party(), name: 'Old Co' },
+      payment: { instructions: 'Bank …', link: 'https://pay.example.com/old' },
+      onboardingComplete: true,
+    }
+    expect((await loadSaved(v2, 2)).payment).toEqual({
+      instructions: 'Bank …',
+      link: 'https://pay.example.com/old',
+      qr: 'link',
+      upiId: '',
+      iban: '',
+      bic: '',
+    })
   })
 })
 

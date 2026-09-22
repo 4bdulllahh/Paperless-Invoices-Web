@@ -4,6 +4,7 @@ import { DEFAULT_NUMBER_PATTERN } from '../domain/numbering'
 import {
   businessProfileSchema,
   clientSchema,
+  emptyPaymentDetails,
   historyEntrySchema,
   logoSchema,
   settingsSchema,
@@ -34,19 +35,24 @@ function browserLocale(): string {
 
 const initialProfile: BusinessProfile = {
   business: emptyParty(),
-  payment: { instructions: '', link: '' },
+  payment: emptyPaymentDetails(),
   onboardingComplete: false,
 }
 
 export const useProfileStore = createPersistedStore(
   {
     name: 'paperless:profile',
-    version: 2,
+    version: 3,
     schema: businessProfileSchema,
     backend: localBackend,
     migrations: {
       // Version 2 added payment details.
       2: (state) => ({ ...(state as object), payment: { instructions: '', link: '' } }),
+      // Version 3 added payment QR codes. A saved link was already promised one.
+      3: (state) => {
+        const profile = state as { payment: { instructions: string; link: string } }
+        return { ...profile, payment: { ...emptyPaymentDetails(), ...profile.payment } }
+      },
     },
   },
   initialProfile,

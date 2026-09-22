@@ -94,7 +94,7 @@ const s = StyleSheet.create({
   },
 })
 
-export function MinimalTemplate({ view, logo, payment }: TemplateProps) {
+export function MinimalTemplate({ view, logo, payment, qr }: TemplateProps) {
   const columns = itemColumns(view)
   const balance = view.totals.find((row) => row.kind === 'balance')!
   const summary = view.totals.filter((row) => row.kind !== 'balance')
@@ -155,6 +155,7 @@ export function MinimalTemplate({ view, logo, payment }: TemplateProps) {
         <View style={s.notes}>
           <PaymentAndNotes
             payment={payment}
+            qr={qr}
             notes={view.notes}
             headingStyle={s.heading}
             textStyle={s.body}

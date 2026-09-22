@@ -1,7 +1,7 @@
 import { addDays, todayIso } from '../domain/dates'
 import { isPristineDraft } from '../domain/draft'
 import { DEFAULT_NUMBER_PATTERN, formatInvoiceNumber } from '../domain/numbering'
-import type { Settings } from '../domain/records'
+import { emptyPaymentDetails, type Settings } from '../domain/records'
 import { createSampleInvoice } from '../domain/sample'
 import { useDraftStore, useProfileStore, useSettingsStore } from './stores'
 
@@ -34,6 +34,7 @@ export function loadSampleData(today = todayIso()) {
   useProfileStore.setState({
     business: sample.from,
     payment: {
+      ...emptyPaymentDetails(),
       instructions:
         'Bank: Example Bank\nAccount name: Acme Studio LLC\nAccount number: 0000 1234 5678',
       link: 'https://pay.example.com/acme-studio',

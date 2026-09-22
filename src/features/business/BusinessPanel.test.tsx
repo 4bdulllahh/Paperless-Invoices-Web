@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearAllData } from '../../storage/backup'
-import { useLogoStore, useProfileStore } from '../../storage/stores'
+import { useLogoStore, useProfileStore, useSettingsStore } from '../../storage/stores'
 import { BusinessPanel } from './BusinessPanel'
 
 const { prepareLogo } = vi.hoisted(() => ({ prepareLogo: vi.fn() }))
@@ -52,6 +52,66 @@ describe('BusinessPanel', () => {
 
     fireEvent.change(link, { target: { value: 'https://pay.example.com/acme ' } })
     expect(useProfileStore.getState().payment.link).toBe('https://pay.example.com/acme')
+  })
+
+  it('sets up a UPI QR code, saving only a valid UPI ID', () => {
+    render(<BusinessPanel />)
+    expect(screen.getByLabelText('QR code on invoices')).toHaveValue('link')
+    expect(screen.queryByLabelText('UPI ID')).not.toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('QR code on invoices'), { target: { value: 'upi' } })
+    expect(screen.getByText(/Your default currency is USD/)).toBeInTheDocument()
+    const upiId = screen.getByLabelText('UPI ID')
+    fireEvent.change(upiId, { target: { value: 'acmestudio' } })
+    expect(screen.getByText(/Enter a UPI ID like/)).toBeInTheDocument()
+    expect(useProfileStore.getState().payment.upiId).toBe('')
+
+    fireEvent.change(upiId, { target: { value: 'acmestudio@okhdfcbank ' } })
+    expect(useProfileStore.getState().payment).toMatchObject({
+      qr: 'upi',
+      upiId: 'acmestudio@okhdfcbank',
+    })
+  })
+
+  it('sets up a SEPA QR code, tidying the IBAN and BIC', () => {
+    useSettingsStore.getState().updateSettings({ currency: 'EUR' })
+    render(<BusinessPanel />)
+    fireEvent.change(screen.getByLabelText('QR code on invoices'), { target: { value: 'sepa' } })
+    expect(screen.getByText(/Also called a GiroCode/).textContent).not.toMatch(/default currency/)
+
+    const iban = screen.getByLabelText('IBAN')
+    fireEvent.change(iban, { target: { value: 'de89370400440532013001' } })
+    expect(screen.getByText(/Check the IBAN/)).toBeInTheDocument()
+    expect(useProfileStore.getState().payment.iban).toBe('')
+
+    fireEvent.change(iban, { target: { value: 'de89370400440532013000' } })
+    expect(iban).toHaveValue('DE89 3704 0044 0532 0130 00')
+
+    const bic = screen.getByLabelText(/BIC/)
+    fireEvent.change(bic, { target: { value: 'cobade' } })
+    expect(screen.getByText(/8 or 11/)).toBeInTheDocument()
+    fireEvent.change(bic, { target: { value: 'cobadeff' } })
+    expect(useProfileStore.getState().payment).toMatchObject({
+      qr: 'sepa',
+      iban: 'DE89 3704 0044 0532 0130 00',
+      bic: 'COBADEFF',
+    })
+
+    fireEvent.change(iban, { target: { value: '' } })
+    expect(useProfileStore.getState().payment.iban).toBe('')
+  })
+
+  it('explains each QR choice', () => {
+    render(<BusinessPanel />)
+    const select = screen.getByLabelText('QR code on invoices')
+    expect(screen.getByText(/Add a payment link above/)).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/Payment link/), {
+      target: { value: 'https://pay.example.com/acme' },
+    })
+    expect(screen.getByText(/Clients scan it to open your payment link/)).toBeInTheDocument()
+    fireEvent.change(select, { target: { value: 'none' } })
+    expect(screen.getByText('Invoices won’t have a QR code.')).toBeInTheDocument()
+    expect(useProfileStore.getState().payment.qr).toBe('none')
   })
 
   it('uploads, replaces and removes a logo', async () => {

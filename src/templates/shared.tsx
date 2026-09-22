@@ -1,7 +1,12 @@
-import { Image, Link, Text, View } from '@react-pdf/renderer'
+import { Image, Link, Path, Rect, Svg, Text, View } from '@react-pdf/renderer'
+import type { PaymentQr } from '../domain/paymentQr'
 import type { Logo, PaymentDetails } from '../domain/records'
 import type { PartyView } from '../domain/viewModel'
-import { partyLines, type Style } from './layout'
+import { INK, partyLines, type Style } from './layout'
+import { QR_QUIET_ZONE, qrMatrix, qrPath } from './qr'
+
+/** About 26 mm: easy for a phone camera to read from a printed page. */
+const QR_SIZE = 74
 
 export function PartyBlock({
   party,
@@ -40,15 +45,38 @@ export function LogoImage({
   )
 }
 
-/** Payment instructions (and a clickable link) plus notes, if there are any. */
+/**
+ * A QR code as vector shapes, so it prints sharp at any size. `size` is the code itself; the
+ * blank margin scanners need is drawn in white around it, outside the layout box.
+ */
+export function QrCode({ value, size }: { value: string; size: number }) {
+  const matrix = qrMatrix(value)
+  const units = matrix.length + QR_QUIET_ZONE * 2
+  const margin = (size / matrix.length) * QR_QUIET_ZONE
+  return (
+    <Svg
+      width={size + margin * 2}
+      height={size + margin * 2}
+      viewBox={`0 0 ${units} ${units}`}
+      style={{ margin: -margin }}
+    >
+      <Rect x={0} y={0} width={units} height={units} fill="#ffffff" />
+      <Path d={qrPath(matrix, QR_QUIET_ZONE)} fill={INK} />
+    </Svg>
+  )
+}
+
+/** Payment instructions, a clickable link and a QR code, plus notes; each only if there is one. */
 export function PaymentAndNotes({
   payment,
+  qr,
   notes,
   headingStyle,
   textStyle,
   linkStyle,
 }: {
   payment: PaymentDetails
+  qr: PaymentQr | null
   notes: string
   headingStyle: Style
   textStyle: Style
@@ -57,7 +85,7 @@ export function PaymentAndNotes({
   const instructions = payment.instructions.trim()
   return (
     <View style={{ gap: 14 }}>
-      {(instructions || payment.link) && (
+      {(instructions || payment.link || qr) && (
         <View>
           <Text style={headingStyle}>Payment</Text>
           {instructions ? <Text style={textStyle}>{instructions}</Text> : null}
@@ -66,6 +94,18 @@ export function PaymentAndNotes({
               {payment.link}
             </Link>
           ) : null}
+          {qr && (
+            <View
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 10 }}
+              wrap={false}
+            >
+              <QrCode value={qr.payload} size={QR_SIZE} />
+              <View style={{ flex: 1 }}>
+                <Text style={headingStyle}>{qr.title}</Text>
+                <Text style={textStyle}>{qr.detail}</Text>
+              </View>
+            </View>
+          )}
         </View>
       )}
       {notes ? (

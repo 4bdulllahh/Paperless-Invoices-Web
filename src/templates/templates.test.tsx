@@ -5,12 +5,12 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
-import type { Logo, PaymentDetails } from '../domain/records'
+import { emptyPaymentDetails, type Logo, type PaymentDetails } from '../domain/records'
 import { createSampleInvoice } from '../domain/sample'
 import { TEMPLATE_IDS, type Invoice, type TemplateId } from '../domain/schema'
-import { buildInvoiceViewModel } from '../domain/viewModel'
 import { registerPdfFonts } from './fonts'
 import { InvoiceDocument } from './InvoiceDocument'
+import { buildTemplateProps } from './props'
 
 // Real PDF rendering (fonts, layout, compression) is slower than a unit test, especially the first.
 vi.setConfig({ testTimeout: 30_000 })
@@ -19,6 +19,7 @@ vi.setConfig({ testTimeout: 30_000 })
 const OUT = process.env.PDF_OUT
 
 const payment: PaymentDetails = {
+  ...emptyPaymentDetails(),
   instructions: 'Bank: Example Bank\nAccount: 0000 1234 5678',
   link: 'https://pay.example.com/acme-studio',
 }
@@ -31,9 +32,9 @@ const logo: Logo = {
   height: 2,
 }
 
-async function render(invoice: Invoice, name: string) {
+async function render(invoice: Invoice, name: string, paymentDetails = payment) {
   const buffer = await renderToBuffer(
-    <InvoiceDocument view={buildInvoiceViewModel(invoice)} logo={logo} payment={payment} />,
+    <InvoiceDocument {...buildTemplateProps(invoice, logo, paymentDetails)} />,
   )
   if (OUT) {
     mkdirSync(OUT, { recursive: true })
@@ -55,6 +56,11 @@ async function render(invoice: Invoice, name: string) {
   await task.destroy()
   return { pages, text: pages.join('\n'), info, width, height }
 }
+
+/** Letter-spaced and uppercase headings extract as "S C A N  T O …": compare letters only. */
+const squash = (text: string) => text.replace(/\s/g, '').toLowerCase()
+const expectPrinted = (text: string, expected: string) =>
+  expect(squash(text), expected).toContain(squash(expected))
 
 const longInvoice = (templateId: TemplateId) =>
   createSampleInvoice({
@@ -99,6 +105,8 @@ describe.each(TEMPLATE_IDS)('%s template', (templateId) => {
     ]) {
       expect(text).toContain(expected)
     }
+    expectPrinted(text, 'Scan to pay online')
+    expectPrinted(text, 'Opens pay.example.com')
     expect(info).toMatchObject({
       Title: 'Invoice INV-2026-0042',
       Author: 'Acme Studio',
@@ -126,5 +134,35 @@ describe.each(TEMPLATE_IDS)('%s template', (templateId) => {
       `${templateId}-inr`,
     )
     expect(text).toContain('₹')
+  })
+
+  it('prints a SEPA QR code on euro invoices, still on one page', async () => {
+    const { pages, text } = await render(
+      createSampleInvoice({ templateId, currency: 'EUR', locale: 'de-DE' }),
+      `${templateId}-sepa`,
+      { ...payment, qr: 'sepa', iban: 'DE89 3704 0044 0532 0130 00', bic: 'COBADEFFXXX' },
+    )
+    expect(pages).toHaveLength(1)
+    expectPrinted(text, 'Scan to pay by bank transfer')
+  })
+
+  it('prints a UPI QR code even with no other payment details', async () => {
+    const { text } = await render(
+      createSampleInvoice({ templateId, currency: 'INR', locale: 'en-IN', notes: '' }),
+      `${templateId}-upi`,
+      { ...emptyPaymentDetails(), qr: 'upi', upiId: 'acmestudio@okhdfcbank' },
+    )
+    for (const expected of ['Payment', 'Scan to pay with UPI', 'To acmestudio@okhdfcbank']) {
+      expectPrinted(text, expected)
+    }
+  })
+
+  it('leaves the QR code off when there’s nothing to pay', async () => {
+    const { text } = await render(
+      createSampleInvoice({ templateId, amountPaid: '99999' }),
+      `${templateId}-paid`,
+    )
+    expect(text).toContain('https://pay.example.com/acme-studio')
+    expect(squash(text)).not.toContain('scantopay')
   })
 })

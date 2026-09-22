@@ -1,7 +1,12 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearAllData } from '../../storage/backup'
-import { useClientsStore, useDraftStore, useSettingsStore } from '../../storage/stores'
+import {
+  useClientsStore,
+  useDraftStore,
+  useProfileStore,
+  useSettingsStore,
+} from '../../storage/stores'
 import { EditorPane } from './EditorPane'
 
 const draft = () => useDraftStore.getState().invoice!
@@ -200,6 +205,28 @@ describe('EditorPane: invoice settings', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit profile' }))
     fireEvent.click(screen.getByRole('button', { name: 'Add payment details' }))
     expect(onEditProfile).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('EditorPane: payment QR code', () => {
+  const qrSummary = () => screen.getByText('QR code').nextElementSibling!
+
+  it('says what the QR code on this invoice does', () => {
+    useProfileStore.getState().updateBusiness({ name: 'Acme Studio' })
+    useProfileStore.getState().updatePayment({ link: 'https://pay.example.com/acme' })
+    useDraftStore.getState().startNewInvoice('2026-09-23')
+    renderEditor()
+    type(within(item(1)).getByLabelText('Unit price'), '100')
+    expect(qrSummary()).toHaveTextContent('Scan to pay onlineOpens pay.example.com')
+    expect(screen.getByRole('button', { name: 'Edit payment details' })).toBeInTheDocument()
+  })
+
+  it('explains why there isn’t one', () => {
+    useProfileStore.getState().updatePayment({ qr: 'upi', upiId: 'acme@okhdfcbank' })
+    renderEditor()
+    expect(qrSummary()).toHaveTextContent(/only added to invoices in Indian rupees/)
+    fireEvent.change(screen.getByLabelText('Currency'), { target: { value: 'INR' } })
+    expect(qrSummary()).toHaveTextContent(/Add your business name/)
   })
 })
 

@@ -11,7 +11,6 @@ describe('buildInvoiceViewModel', () => {
       issueDate: 'Sep 23, 2026',
       dueDate: 'Oct 7, 2026',
       balanceDue: '$3,247.76',
-      balanceDueMinor: 324776,
       notes: 'Thank you for your business!',
       showTaxColumn: false,
       showDiscountColumn: true,

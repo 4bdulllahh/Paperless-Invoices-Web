@@ -22,8 +22,6 @@ export type InvoiceViewModel = {
   showDiscountColumn: boolean
   totals: TotalRow[]
   balanceDue: string
-  /** For the payment QR code. */
-  balanceDueMinor: number
   notes: string
   /** The raw calculation, for anything that needs numbers rather than text. */
   raw: InvoiceTotals
@@ -110,7 +108,6 @@ export function buildInvoiceViewModel(invoice: Invoice): InvoiceViewModel {
     showDiscountColumn: totals.lines.some((l) => l.lineDiscount > 0),
     totals: rows,
     balanceDue: money(totals.balanceDue),
-    balanceDueMinor: totals.balanceDue,
     notes: invoice.notes.trim(),
     raw: totals,
   }
