@@ -38,14 +38,14 @@ export const NAV_ITEMS: readonly NavItem[] = [
     id: 'business',
     label: 'Business',
     icon: Building2,
-    description: 'Your business details, logo and payment methods, added to every invoice.',
+    description: 'Your business details, logo and payment information.',
     milestone: 4,
   },
   {
     id: 'settings',
     label: 'Settings',
     icon: Settings,
-    description: 'Default currency, tax, numbering and template, plus backup and restore.',
+    description: 'Defaults for new invoices, plus backup and restore.',
     milestone: 4,
   },
 ]

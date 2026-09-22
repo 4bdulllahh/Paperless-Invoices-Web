@@ -3,6 +3,7 @@ import { CraneMark } from '../components/brand/CraneMark'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import type { ResolvedTheme } from '../hooks/useTheme'
+import { useDraftStore } from '../storage/stores'
 
 type TopBarProps = {
   theme: ResolvedTheme
@@ -11,6 +12,7 @@ type TopBarProps = {
 
 export function TopBar({ theme, onToggleTheme }: TopBarProps) {
   const nextTheme = theme === 'dark' ? 'light' : 'dark'
+  const number = useDraftStore((state) => state.invoice?.number)
   return (
     <header className="flex h-16 shrink-0 items-center gap-3 rounded-xl border border-line bg-surface/80 px-3 shadow-elev-1 backdrop-blur-md sm:px-4">
       <div className="flex items-center gap-2.5">
@@ -20,12 +22,14 @@ export function TopBar({ theme, onToggleTheme }: TopBarProps) {
         <span className="font-display text-lg font-semibold tracking-tight">Paperless</span>
       </div>
 
-      <div className="ml-2 hidden items-center gap-2.5 border-l border-line pl-4 sm:flex">
-        <span className="font-display text-sm font-medium text-fg-muted tabular-nums">
-          INV-2026-0001
-        </span>
-        <Badge dot>Draft</Badge>
-      </div>
+      {number && (
+        <div className="ml-2 hidden items-center gap-2.5 border-l border-line pl-4 sm:flex">
+          <span className="font-display text-sm font-medium text-fg-muted tabular-nums">
+            {number}
+          </span>
+          <Badge dot>Draft</Badge>
+        </div>
+      )}
 
       <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
         <Button

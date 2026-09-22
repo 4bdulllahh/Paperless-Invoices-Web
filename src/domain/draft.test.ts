@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { createInvoiceDraft, createLineItem, emptyParty } from './draft'
+import { createInvoiceDraft, createLineItem, emptyParty, isPristineDraft, sameParty } from './draft'
 import type { Settings } from './records'
 import { settingsSchema } from './records'
-import { invoiceSchema } from './schema'
+import { invoiceSchema, type Invoice } from './schema'
 
 const settings: Settings = {
   currency: 'GBP',
@@ -63,5 +63,41 @@ describe('createLineItem', () => {
       taxRate: '',
       discount: { type: 'none', value: '' },
     })
+  })
+})
+
+describe('sameParty', () => {
+  it('compares every field', () => {
+    const a = { ...emptyParty(), name: 'Acme' }
+    expect(sameParty(a, { ...a })).toBe(true)
+    expect(sameParty(a, { ...a, taxId: 'X' })).toBe(false)
+  })
+})
+
+describe('isPristineDraft', () => {
+  const fresh = () =>
+    createInvoiceDraft({
+      id: 'inv',
+      lineId: 'line',
+      today: '2026-09-23',
+      settings,
+      business: { ...emptyParty(), name: 'Acme Studio' },
+    })
+
+  it('is true for an untouched draft, even with the sender filled in', () => {
+    expect(isPristineDraft(fresh())).toBe(true)
+  })
+
+  it.each([
+    ['a client name', (i: Invoice) => ({ ...i, to: { ...i.to, name: 'Northwind' } })],
+    ['a client email', (i: Invoice) => ({ ...i, to: { ...i.to, email: 'a@b.co' } })],
+    ['notes', (i: Invoice) => ({ ...i, notes: 'Thanks' })],
+    [
+      'an item description',
+      (i: Invoice) => ({ ...i, items: [{ ...i.items[0], description: 'Design' }] }),
+    ],
+    ['an item price', (i: Invoice) => ({ ...i, items: [{ ...i.items[0], unitPrice: '10' }] })],
+  ])('is false once it has %s', (_, edit) => {
+    expect(isPristineDraft(edit(fresh()))).toBe(false)
   })
 })

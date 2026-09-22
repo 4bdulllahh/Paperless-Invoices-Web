@@ -7,6 +7,20 @@ export function emptyParty(): Party {
   return { name: '', email: '', phone: '', address: '', taxId: '' }
 }
 
+export function sameParty(a: Party, b: Party): boolean {
+  return (Object.keys(a) as (keyof Party)[]).every((key) => a[key] === b[key])
+}
+
+/** True until the user has started filling the invoice in, so it can be safely replaced. */
+export function isPristineDraft(invoice: Invoice): boolean {
+  return (
+    !invoice.to.name.trim() &&
+    !invoice.to.email.trim() &&
+    !invoice.notes.trim() &&
+    invoice.items.every((item) => !item.description.trim() && !item.unitPrice.trim())
+  )
+}
+
 export function createLineItem(id: string, taxRate = ''): LineItem {
   return {
     id,

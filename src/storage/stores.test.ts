@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { emptyParty as party } from '../domain/draft'
 import { createSampleInvoice } from '../domain/sample'
 import { clearAllData } from './backup'
 import {
@@ -6,13 +7,14 @@ import {
   useClientsStore,
   useDraftStore,
   useHistoryStore,
+  useLogoStore,
   useProfileStore,
   useSettingsStore,
 } from './stores'
 
 const waitForIdb = () =>
   Promise.all(
-    [useClientsStore, useHistoryStore].map(
+    [useClientsStore, useHistoryStore, useLogoStore].map(
       (store) =>
         new Promise<void>((resolve) => {
           if (store.persist.hasHydrated()) resolve()
@@ -28,7 +30,7 @@ beforeEach(async () => {
 
 describe('profile store', () => {
   it('updates business details and remembers onboarding', () => {
-    const { updateBusiness, completeOnboarding } = useProfileStore.getState()
+    const { updateBusiness, completeOnboarding, restartOnboarding } = useProfileStore.getState()
     updateBusiness({ name: 'Acme Studio' })
     updateBusiness({ email: 'hello@acme.studio' })
     completeOnboarding()
@@ -36,6 +38,69 @@ describe('profile store', () => {
       business: { name: 'Acme Studio', email: 'hello@acme.studio' },
       onboardingComplete: true,
     })
+    restartOnboarding()
+    expect(useProfileStore.getState()).toMatchObject({
+      business: { name: 'Acme Studio' },
+      onboardingComplete: false,
+    })
+  })
+
+  it('updates payment details', () => {
+    useProfileStore.getState().updatePayment({ link: 'https://pay.example.com/acme' })
+    useProfileStore.getState().updatePayment({ instructions: 'IBAN …' })
+    expect(useProfileStore.getState().payment).toEqual({
+      instructions: 'IBAN …',
+      link: 'https://pay.example.com/acme',
+    })
+  })
+
+  it('keeps the draft’s sender in step until it is edited on the invoice', () => {
+    const { updateBusiness } = useProfileStore.getState()
+    updateBusiness({ name: 'Acme' })
+    useDraftStore.getState().startNewInvoice('2026-09-23')
+
+    updateBusiness({ name: 'Acme Studio' })
+    expect(useDraftStore.getState().invoice?.from.name).toBe('Acme Studio')
+
+    useDraftStore.getState().updateInvoice((invoice) => ({
+      ...invoice,
+      from: { ...invoice.from, name: 'Acme (trading)' },
+    }))
+    updateBusiness({ name: 'Acme Studio LLC' })
+    expect(useDraftStore.getState().invoice?.from.name).toBe('Acme (trading)')
+  })
+
+  it('does nothing to the draft when there isn’t one', () => {
+    useProfileStore.getState().updateBusiness({ name: 'Acme' })
+    expect(useDraftStore.getState().invoice).toBeNull()
+  })
+})
+
+describe('profile upgrade from version 1', () => {
+  afterEach(() => vi.resetModules())
+
+  it('adds empty payment details and keeps everything else', async () => {
+    const v1 = { business: { ...party(), name: 'Old Co' }, onboardingComplete: true }
+    localStorage.setItem('paperless:profile', JSON.stringify({ state: v1, version: 1 }))
+    vi.resetModules()
+
+    const { useProfileStore: fresh } = await import('./stores')
+
+    expect(fresh.getState()).toMatchObject({
+      ...v1,
+      payment: { instructions: '', link: '' },
+    })
+    expect(JSON.parse(localStorage.getItem('paperless:profile')!).version).toBe(2)
+  })
+})
+
+describe('logo store', () => {
+  it('sets and removes the logo', () => {
+    const logo = { dataUrl: 'data:image/png;base64,AAAA', width: 400, height: 200 }
+    useLogoStore.getState().setLogo(logo)
+    expect(useLogoStore.getState().logo).toEqual(logo)
+    useLogoStore.getState().removeLogo()
+    expect(useLogoStore.getState().logo).toBeNull()
   })
 })
 

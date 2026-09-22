@@ -1,9 +1,32 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import App from './App'
 import { THEME_STORAGE_KEY } from './hooks/useTheme'
+import { clearAllData } from './storage/backup'
+import { useProfileStore } from './storage/stores'
+
+beforeEach(() => clearAllData())
+
+describe('first visit', () => {
+  it('opens the setup wizard over an inert workspace', () => {
+    render(<App />)
+    expect(screen.getByRole('dialog', { name: 'Set up Paperless' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'Invoice details' }).closest('[inert]'),
+    ).not.toBeNull()
+  })
+
+  it('shows the workspace once setup is done', () => {
+    useProfileStore.getState().completeOnboarding()
+    render(<App />)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Invoice details' }).closest('[inert]')).toBeNull()
+  })
+})
 
 describe('App shell', () => {
+  beforeEach(() => useProfileStore.getState().completeOnboarding())
+
   it('opens on the invoice editor with a preview', () => {
     render(<App />)
     expect(screen.getByRole('heading', { name: 'Invoice details' })).toBeInTheDocument()

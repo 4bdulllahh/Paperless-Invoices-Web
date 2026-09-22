@@ -14,6 +14,7 @@ import {
   useClientsStore,
   useDraftStore,
   useHistoryStore,
+  useLogoStore,
   useProfileStore,
   useSettingsStore,
 } from './stores'
@@ -31,6 +32,7 @@ function fillWithData() {
     taxId: '',
   })
   useHistoryStore.getState().recordInvoice(createSampleInvoice())
+  useLogoStore.getState().setLogo({ dataUrl: 'data:image/png;base64,AAAA', width: 2, height: 1 })
 }
 
 const snapshot = () =>
@@ -78,7 +80,10 @@ describe('backups', () => {
 
     if (parsed.ok) await applyBackup(parsed.backup)
 
-    expect(landed).toBe(2) // clients and history
+    const idbStores = Object.values(PERSISTED_STORES).filter(
+      (store) => store.definition.backend === idbBackend,
+    )
+    expect(landed).toBe(idbStores.length)
     vi.restoreAllMocks()
   })
 

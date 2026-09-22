@@ -23,6 +23,21 @@ describe('broadcast', () => {
     otherTab.close()
   })
 
+  it('ignores messages it doesn’t understand', async () => {
+    const { onRemoteChange } = await import('./broadcast')
+    const callback = vi.fn()
+    onRemoteChange('paperless:settings', callback)
+    const otherTab = new BroadcastChannel('paperless-storage')
+
+    otherTab.postMessage('paperless:settings')
+    otherTab.postMessage({ key: 42 })
+    otherTab.postMessage(null)
+    otherTab.postMessage({ key: 'paperless:settings' })
+
+    await vi.waitFor(() => expect(callback).toHaveBeenCalledOnce())
+    otherTab.close()
+  })
+
   it('does nothing in browsers without BroadcastChannel', async () => {
     vi.stubGlobal('BroadcastChannel', undefined)
     const { announceChange, onRemoteChange } = await import('./broadcast')

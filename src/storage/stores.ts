@@ -1,15 +1,18 @@
-import { createInvoiceDraft, emptyParty } from '../domain/draft'
+import { createInvoiceDraft, emptyParty, sameParty } from '../domain/draft'
 import { todayIso } from '../domain/dates'
 import { DEFAULT_NUMBER_PATTERN } from '../domain/numbering'
 import {
   businessProfileSchema,
   clientSchema,
   historyEntrySchema,
+  logoSchema,
   settingsSchema,
   type BusinessProfile,
   type Client,
   type HistoryEntry,
   type HistoryStatus,
+  type Logo,
+  type PaymentDetails,
   type Settings,
 } from '../domain/records'
 import { invoiceSchema, type Invoice, type Party } from '../domain/schema'
@@ -27,17 +30,64 @@ function browserLocale(): string {
   }
 }
 
-/* Business profile: who is sending the invoices. localStorage. */
+/* Business profile: who is sending the invoices, and how to pay them. localStorage. */
 
-const initialProfile: BusinessProfile = { business: emptyParty(), onboardingComplete: false }
+const initialProfile: BusinessProfile = {
+  business: emptyParty(),
+  payment: { instructions: '', link: '' },
+  onboardingComplete: false,
+}
 
 export const useProfileStore = createPersistedStore(
-  { name: 'paperless:profile', version: 1, schema: businessProfileSchema, backend: localBackend },
+  {
+    name: 'paperless:profile',
+    version: 2,
+    schema: businessProfileSchema,
+    backend: localBackend,
+    migrations: {
+      // Version 2 added payment details.
+      2: (state) => ({ ...(state as object), payment: { instructions: '', link: '' } }),
+    },
+  },
   initialProfile,
-  (set) => ({
-    updateBusiness: (patch: Partial<Party>) =>
-      set((state) => ({ business: { ...state.business, ...patch } })),
+  (set, get) => ({
+    /**
+     * Update the business details. The current draft follows along until its sender details
+     * have been edited on the invoice itself.
+     */
+    updateBusiness: (patch: Partial<Party>) => {
+      const before = get().business
+      const business = { ...before, ...patch }
+      set({ business })
+      useDraftStore
+        .getState()
+        .updateInvoice((invoice) =>
+          sameParty(invoice.from, before) ? { ...invoice, from: { ...business } } : invoice,
+        )
+    },
+    updatePayment: (patch: Partial<PaymentDetails>) =>
+      set((state) => ({ payment: { ...state.payment, ...patch } })),
     completeOnboarding: () => set({ onboardingComplete: true }),
+    /** Show the setup wizard again. Nothing is erased. */
+    restartOnboarding: () => set({ onboardingComplete: false }),
+  }),
+)
+
+/* Logo: a resized PNG. IndexedDB, because images are large. */
+
+type LogoData = { logo: Logo | null }
+
+export const useLogoStore = createPersistedStore(
+  {
+    name: 'paperless:logo',
+    version: 1,
+    schema: z.object({ logo: logoSchema.nullable() }),
+    backend: idbBackend,
+  },
+  { logo: null } as LogoData,
+  (set) => ({
+    setLogo: (logo: Logo) => set({ logo }),
+    removeLogo: () => set({ logo: null }),
   }),
 )
 
@@ -94,6 +144,7 @@ export const useDraftStore = createPersistedStore(
       set({ invoice })
       return invoice
     },
+    setInvoice: (invoice: Invoice) => set({ invoice }),
     updateInvoice: (update: (invoice: Invoice) => Invoice) =>
       set((state) => (state.invoice ? { invoice: update(state.invoice) } : {})),
     clearDraft: () => set({ invoice: null }),
@@ -176,6 +227,7 @@ export const useHistoryStore = createPersistedStore(
 /** Every saved store, in backup order. */
 export const PERSISTED_STORES = {
   profile: useProfileStore,
+  logo: useLogoStore,
   settings: useSettingsStore,
   draft: useDraftStore,
   clients: useClientsStore,

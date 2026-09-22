@@ -16,7 +16,10 @@ export function NavRail({ active, onSelect, orientation, className }: NavRailPro
       aria-label="Main"
       className={cn(
         'shrink-0 rounded-xl border border-line bg-surface shadow-elev-1',
-        vertical ? 'w-[76px] flex-col items-center gap-1.5 py-3' : 'h-16 items-stretch px-1.5',
+        // relative z-10: hover labels must paint above the panel beside the rail.
+        vertical
+          ? 'relative z-10 w-[76px] flex-col items-center gap-1.5 py-3'
+          : 'h-16 items-stretch px-1.5',
         className,
       )}
     >

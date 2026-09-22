@@ -3,25 +3,47 @@ import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Collapsible } from '../../components/ui/Collapsible'
 import { TextAreaField, TextField } from '../../components/ui/Field'
+import type { Party } from '../../domain/schema'
 import { cn } from '../../lib/cn'
+import { useDraftStore } from '../../storage/stores'
 
 /**
- * Editor layout. Fields are not wired to state yet: storage arrives in Milestone 3
- * and the working editor in Milestone 5.
+ * The invoice editor. "Your business" is live and filled in from the business profile;
+ * the other sections are wired up in Milestone 5.
  */
 export function EditorPane({ className }: { className?: string }) {
+  const from = useDraftStore((state) => state.invoice?.from)
+  const updateInvoice = useDraftStore((state) => state.updateInvoice)
+  const updateFrom = (patch: Partial<Party>) =>
+    updateInvoice((invoice) => ({ ...invoice, from: { ...invoice.from, ...patch } }))
+
   return (
     <Card className={cn('flex min-h-0 flex-col overflow-hidden', className)}>
       <div className="border-b border-line px-5 py-4">
         <h1 className="font-display text-lg font-semibold tracking-tight">Invoice details</h1>
-        <p className="text-sm text-fg-subtle">Fields start working in Milestone 5.</p>
+        <p className="text-sm text-fg-subtle">
+          Your details are filled in from your profile. The other sections arrive in Milestone 5.
+        </p>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-3 sm:p-4">
         <Collapsible title="Your business" icon={<Building2 />} defaultOpen>
           <div className="grid gap-3 sm:grid-cols-2">
-            <TextField label="Business name" placeholder="Acme Studio" />
-            <TextField label="Email" type="email" placeholder="hello@acme.studio" />
+            <TextField
+              label="Business name"
+              placeholder="Acme Studio"
+              value={from?.name ?? ''}
+              onChange={(e) => updateFrom({ name: e.target.value })}
+              disabled={!from}
+            />
+            <TextField
+              label="Email"
+              type="email"
+              placeholder="hello@acme.studio"
+              value={from?.email ?? ''}
+              onChange={(e) => updateFrom({ email: e.target.value })}
+              disabled={!from}
+            />
           </div>
         </Collapsible>
 
