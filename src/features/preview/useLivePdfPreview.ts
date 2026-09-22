@@ -53,6 +53,15 @@ export function useLivePdfPreview() {
     return () => clearTimeout(timer)
   }, [invoice, logo, logoReady, payment])
 
+  // Load the PDF engine shortly after start-up, even before there's an invoice to draw (a new
+  // visitor is still in the setup wizard), so the first preview doesn't wait on the network.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void import('../../services/pdf').then((engine) => engine.warmUp?.()).catch(() => {})
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [])
+
   // Free the page images when the preview goes away.
   useEffect(() => {
     const images = shown

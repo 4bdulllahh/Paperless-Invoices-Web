@@ -6,7 +6,7 @@ import { useDraftStore } from '../../storage/stores'
 import { PreviewPane } from './PreviewPane'
 
 const { renderPreview } = vi.hoisted(() => ({ renderPreview: vi.fn() }))
-vi.mock('../../services/pdf', () => ({ renderPreview }))
+vi.mock('../../services/pdf', () => ({ renderPreview, warmUp: vi.fn() }))
 
 let urls = 0
 const pagesOf = (count: number) =>

@@ -112,6 +112,15 @@ export async function rasterizePdf(file: Blob, width = 1240): Promise<PreviewPag
   }
 }
 
+/**
+ * Start both workers ahead of time (downloading ~2.5 MB of PDF engine), e.g. while a new
+ * visitor is still in the setup wizard, so their first preview appears without a wait.
+ */
+export function warmUp() {
+  getRenderer()
+  pdfjsWorker ??= new PDFWorker()
+}
+
 /** Render and rasterise in one step, for the live preview. */
 export async function renderPreview(props: TemplateProps): Promise<PreviewPage[]> {
   return rasterizePdf(await renderInvoicePdf(props))
