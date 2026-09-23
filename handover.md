@@ -74,9 +74,9 @@ Paperless is a free invoice generator that runs entirely in the browser. It's a 
 **First visit.** A setup wizard (`src/features/onboarding/OnboardingWizard.tsx`) covers the whole screen. Its four steps:
 
 1. **Country (required):** pre-selected from the device's time zone (then its languages) by `guessCountry`. Fills in currency, number format, tax name and rate, tax number label, title, amount in words, tax on each line and signing.
-2. **Business details:** name and email are required.
-3. **Invoice defaults:** payment terms, numbering and so on.
-4. **Getting paid:** payment instructions, accepted methods and QR code.
+2. **Business details:** only the name is required to continue (the email is checked if given). The tax number field uses the country's label (e.g. "TRN") and isn't marked optional where the law requires it, but it doesn't block the wizard.
+3. **Invoice defaults:** payment terms, due date or payment terms on invoices, tax on each line, numbering, title, template and so on.
+4. **Getting paid:** accepted methods, bank details (bank name, account name and number, IBAN, SWIFT), other instructions, payment link and QR code.
 
 "Explore with sample data" skips the wizard and loads a demo business, client and invoice (`src/domain/sample.ts`). After setup, the first invoice is empty apart from the user's defaults.
 
@@ -96,13 +96,13 @@ Paperless is a free invoice generator that runs entirely in the browser. It's a 
 
 **Panels:**
 
-| Panel    | File                                      | What it does                                                                                                                                                                                                                                    |
-| -------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Invoice  | `src/features/editor/EditorPane.tsx`      | Collapsible sections in this order: Bill to (with saved-client combobox), Items, Tax & discounts, Title, number & dates, From, Payment, Notes. A totals footer shows the balance due, with an expandable breakdown. Every keystroke autosaves.  |
-| History  | `src/features/history/HistoryPanel.tsx`   | Every downloaded invoice. Search, filter (All/Unpaid/Overdue/Paid), mark paid with a date, download again exactly as issued, duplicate as a new draft, delete.                                                                                  |
-| Clients  | `src/features/clients/ClientsPanel.tsx`   | Saved "Bill to" details, added with "Save to clients" in the editor. Search, put one on the current invoice, delete.                                                                                                                            |
-| Business | `src/features/business/BusinessPanel.tsx` | Business details, logo, default payment details (accepted methods, bank name, account name and number, IBAN, SWIFT, other instructions, payment link, QR code of type link, UPI or SEPA), and the signature and stamp with "Sign new invoices". |
-| Settings | `src/features/settings/SettingsPanel.tsx` | Country, currency, locale, tax, terms, numbering, title, template and words (`InvoiceDefaultsForm.tsx`). Also data (backup export/import, erase everything; `DataSection.tsx`), "Run setup again", and the version plus GitHub link.            |
+| Panel    | File                                      | What it does                                                                                                                                                                                                                                                                                 |
+| -------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Invoice  | `src/features/editor/EditorPane.tsx`      | Collapsible sections in this order: Bill to (with saved-client combobox), Items, Tax & discounts, Title, number & dates, From, Payment, Notes. A totals footer shows the balance due, with an expandable breakdown. Every keystroke autosaves.                                               |
+| History  | `src/features/history/HistoryPanel.tsx`   | Every downloaded invoice. Search, filter (All/Unpaid/Overdue/Paid), mark paid with a date, download again exactly as issued, duplicate as a new draft, delete.                                                                                                                               |
+| Clients  | `src/features/clients/ClientsPanel.tsx`   | Saved "Bill to" details, added with "Save to clients" in the editor. Search, put one on the current invoice, delete.                                                                                                                                                                         |
+| Business | `src/features/business/BusinessPanel.tsx` | Business details, logo, default payment details (accepted methods, bank name, account name and number, IBAN, SWIFT, other instructions, payment link, QR code of type link, UPI or SEPA), and the signature and stamp with "Sign new invoices".                                              |
+| Settings | `src/features/settings/SettingsPanel.tsx` | Country, currency, locale, tax (name, rate, number label, tax on each line), terms and whether invoices print a due date or the terms, numbering, title, template and words (`InvoiceDefaultsForm.tsx`). Also data (`DataSection.tsx`), "Run setup again", and the version plus GitHub link. |
 
 **Preview pane** (`src/features/preview/PreviewPane.tsx`):
 
@@ -120,7 +120,7 @@ Paperless is a free invoice generator that runs entirely in the browser. It's a 
 
 Then `complianceIssues` (`src/domain/compliance.ts`) lists what the law in the invoice's country asks for, as warnings (`legal: true`). Examples: the seller's TRN, the client's address and TRN, the title "Tax Invoice", VAT in AED, HSN/SAC codes and a signature in India.
 
-Any problems appear in a popover, each with a button that jumps to the section to fix. When only warnings remain, the popover is titled "Missing for a legal invoice" and offers **Download anyway**. A successful download saves a snapshot to History. The first download of a draft also uses up the next invoice number. A "Start a new invoice" note follows.
+The checks from `exportIssues` block the download; the legal warnings don't. Any problems appear in a popover, each with a button that jumps to the section to fix. When only warnings remain, the popover is titled "Missing for a legal invoice" and offers **Download anyway**. A successful download saves a snapshot to History. The first download of a draft also uses up the next invoice number. A "Start a new invoice" note follows.
 
 **Other UI:**
 
@@ -395,10 +395,15 @@ Afterwards, stop it with `Get-NetTCPConnection -LocalPort 4173 | ForEach-Object 
   | `m9.mjs <outDir> [distDir]`      | Offline, update prompt, axe on every panel in both themes, tab order.                                                                                                                                                                                                                                                            |
   | `m10shots.mjs <outDir>`          | Captures the README screenshots. Convert them to `docs/screenshots/*.webp` with PIL at about 1600 px wide.                                                                                                                                                                                                                       |
 
-- **If that folder is gone** (Temp gets cleaned): make a new scratch folder, run `npm i playwright-core axe-core`, and write a fresh script modelled on the m11 description above.
+- **If that folder is gone** (Temp gets cleaned): make a new scratch folder, run `npm i playwright-core axe-core`, and write a fresh script modelled on the m12 description above.
   - Use `browser.newContext({ viewport, isMobile, hasTouch })` for phone sizes, since headless Edge windows can't go below 492 px.
   - Use `bypassCSP: true` only in contexts where axe gets injected.
-- **Gotchas:** editor sections collapse when you switch panels, so scripts must reopen them. The one-time "works offline" note can cover things for a few seconds after the first load.
+- **Gotchas:**
+  - Editor sections collapse when you switch panels, so scripts must reopen them.
+  - The one-time "works offline" note can cover things for a few seconds after the first load.
+  - The browser context's time zone decides which country the wizard pre-selects. Set `timezoneId` in `newContext` (m12 uses `Asia/Dubai`, m11 `Antarctica/Troll` for none).
+  - Downloading a UAE invoice shows the legal-warnings popover first; click **Download anyway** (m11 and m12 do).
+  - axe sometimes reports a `color-contrast` hit on the preview's "Updating…" status while it fades out. It's a transition caught midway: wait a few seconds and scan again. On the live site after v1.2 it cleared after 3 seconds.
 
 **Accessibility:**
 
@@ -410,7 +415,7 @@ Afterwards, stop it with `Get-NetTCPConnection -LocalPort 4173 | ForEach-Object 
 
 ## Shipping a change
 
-1. Run all checks (above) and fix everything. Run the browser checks relevant to what changed, locally against `vite preview`.
+1. Run all checks (above) and fix everything. Run the browser checks relevant to what changed, locally against `vite preview`. Run `npm run format:check` again after any edit, even to Markdown only: a docs-only commit after v1.2 failed CI because a longer URL broke a Prettier-aligned table.
 2. For a user-visible release:
    - bump `version` in `package.json` and run `npm install --package-lock-only` so the lockfile matches
    - update the README (Features, Roadmap line, screenshots if the look changed)
@@ -432,7 +437,7 @@ Afterwards, stop it with `Get-NetTCPConnection -LocalPort 4173 | ForEach-Object 
    curl -s "https://api.github.com/repos/4bdulllahh/Paperless-Invoices-Web/actions/runs?head_sha=$(git rev-parse HEAD)" | grep -m2 -E '"(status|conclusion)"'
    ```
 5. Wait for Vercel. The deploy is live when `curl -s https://paperless-bay-zeta.vercel.app/` contains the new `index-<hash>.js` name from `dist/assets`.
-6. Run `m11.mjs` and `m10csp.mjs` against the live URL.
+6. Run `m12.mjs` and `m10csp.mjs` against the live URL (and `m11.mjs` for templates and zoom).
 7. Tag releases: `git tag -a v1.x.0 -m "..." && git push origin v1.x.0`.
 8. Write the plain summary for the user.
 
@@ -444,6 +449,8 @@ Versioning: bug fixes bump the patch (1.1.1). A round of feature feedback bumps 
 - **PATH:** fresh PowerShell shells don't have node or npm on PATH. Start npm commands with the `$env:Path = ...` line from [Starting a session](#starting-a-session). The Bash tool (Git Bash) can't find npm, so run npm and npx in PowerShell. git, curl and python work in Bash.
 - **PowerShell 5.1:** it has no `&&`. Use `;` or `if ($?) { … }`.
 - **Editing files:** use the Edit tool for multi-line code edits. Python heredoc replacements have mangled `\n` escapes in the past.
+- **Large patches:** long Bash heredocs sometimes fail to parse in this tool ("unexpected EOF"). Write the patch script to the session scratchpad with the Write tool and run it with `python`. Open files with `newline='\n'` when writing, or Python on Windows writes CRLF.
+- **Running one test file** needs the repo root as the working directory, e.g. `npx vitest run src/domain/pricing.test.ts`.
 - **Line endings:** `.gitattributes` normalises them. Don't be alarmed by CRLF warnings.
 
 ## Known limitations and ideas
@@ -476,7 +483,7 @@ Versioning: bug fixes bump the patch (1.1.1). A round of feature feedback bumps 
 
 ## Current state
 
-- **Version:** v1.2.0. Released on 2026-09-24. Nothing is in progress.
+- **Version:** v1.2.0 (commit `8f407e1`, tagged), followed by two docs commits (`b01c8b8`, `8ec31ef`) for the repository rename. Released and verified live on 2026-09-24. Nothing is in progress.
 - **History of releases:**
   - Milestones 1–10 built the app; M10 was tagged v1.0.0.
   - v1.1.0 was the first round of user feedback:
@@ -499,6 +506,13 @@ Versioning: bug fixes bump the patch (1.1.1). A round of feature feedback bumps 
     - signature and stamp (upload or draw)
     - country guessed on first run
     - logo picker fixes for Android
+- **Readings chosen in v1.2** (where the request could be read more than one way):
+  - "Tax included" became a one-off action that lowers the rates, not a mode, because a UAE tax invoice must show rates before VAT. The 4.76 AED the user saw was correct maths (100 including 5% is 95.24 + 4.76); the old mode just printed 100 as the rate.
+  - "Popup" for changed payment details is a notice that sticks to the bottom of the Payment section, with Got it and Undo changes, rather than a modal.
+  - "On delivery day" payment terms are 0 days.
+  - The item code column (HSN/SAC) is only offered for India; "LPO" is used for Gulf countries, "PO" elsewhere.
+  - Group headings within items (seen on the user's sample invoice) weren't asked for, so they're not built.
+- **Verified live after v1.2:** `m12.mjs` (no errors, axe clean apart from the fading-status artefact above), `m10csp.mjs` (no CSP problems), downloaded PDF checked visually.
 - **Health:**
   - all checks and CI pass; 575 tests; domain and storage coverage 100%
   - start-up JS about 146 KB gzipped (the payment and signature forms now live in the editor)
