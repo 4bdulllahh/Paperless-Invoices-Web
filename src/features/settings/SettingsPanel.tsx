@@ -37,6 +37,17 @@ export function SettingsPanel({ className }: { className?: string }) {
             Run setup again
           </Button>
         </section>
+        <p className="border-t border-line pt-6 text-sm text-fg-subtle">
+          Paperless {__APP_VERSION__} · Free and open source ·{' '}
+          <a
+            href="https://github.com/4bdulllahh/Paperless-Web"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-fg-muted underline underline-offset-2 hover:text-fg"
+          >
+            View the code on GitHub
+          </a>
+        </p>
       </div>
     </Card>
   )

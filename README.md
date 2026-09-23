@@ -4,9 +4,29 @@ Free, private invoicing that runs entirely in your browser.
 
 Create professional A4 invoices, preview them live across multiple templates, add a payment QR code, and download a crisp PDF. No account, no server and no database. Your business details and invoice history are stored only on your device.
 
-**Live:** https://paperless-bay-zeta.vercel.app
+**Live:** https://paperless-bay-zeta.vercel.app · **Version:** 1.0.0
 
-> **Status:** feature-complete beta (Milestone 9 — accessibility, offline support and polish).
+![The Paperless workspace: invoice editor on the left, live PDF preview on the right](docs/screenshots/workspace-light.webp)
+
+## Features
+
+- **Live, exact preview.** Three A4 templates (Modern, Classic, Minimal), redrawn as you type from the same PDF you download.
+- **Correct maths.** Per-line and invoice discounts, several tax rates, tax-inclusive or tax-exclusive prices, partial payments, 160+ currencies, all calculated exactly with no floating point.
+- **Get paid faster.** Payment instructions plus a QR code: a payment link, UPI for rupee invoices or SEPA for euro invoices.
+- **History.** Every downloaded invoice is kept as sent, with paid, unpaid and overdue tracking, search, re-download and duplicate.
+- **Saved clients** fill in "Bill to" for you, and invoice numbers count up on their own.
+- **Works offline** and installs like an app. Light and dark themes, phone to desktop.
+- **Private by design.** No account, no server, no tracking. Back up and restore your data as a file.
+
+| Dark theme, Classic template                        | Invoice history                           |
+| --------------------------------------------------- | ----------------------------------------- |
+| ![Dark theme](docs/screenshots/workspace-dark.webp) | ![History](docs/screenshots/history.webp) |
+
+<p align="center"><img src="docs/screenshots/phone.webp" alt="Paperless on a phone: editor and preview" width="560" /></p>
+
+## Privacy
+
+Paperless has no backend. Your business details, clients, invoices and logo are stored only in your browser (localStorage and IndexedDB) and are never uploaded, including when a PDF is made: it's built on your device. There are no analytics, cookies or third-party requests; fonts are self-hosted. The site's security policy blocks connections to any other server, so nothing can leave even by mistake. Clearing your browser data deletes everything, so export a backup from Settings to keep a copy.
 
 ## Principles
 
@@ -66,6 +86,34 @@ IBANs are checked with the mod-97 checksum before they're saved. The code is lef
 
 Paperless is an installable web app. After the first visit, a service worker keeps a copy of the whole app, including the PDF engine and fonts, so you can write, preview and download invoices with no connection. New versions never interrupt you mid-edit: a small prompt offers to reload when one is ready.
 
+## Security
+
+The site is served with a strict Content-Security-Policy (see [`vercel.json`](vercel.json)): scripts only from the site itself (plus one inline theme script, allowed by its hash), no connections to other servers, no plugins and no framing. The only exception is WebAssembly compilation, which the PDF layout engine needs. `X-Content-Type-Options`, `X-Frame-Options`, a no-referrer policy and a locked-down `Permissions-Policy` are set too, and HSTS comes from Vercel. A unit test fails the build if the inline script changes without its hash. `npm run preview` serves the same headers, so the production policy is tested locally.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  UI["React UI<br/>src/features, src/app"] -->|edits| Stores["Zustand stores + Zod<br/>src/storage"]
+  Stores <-->|persist, migrate| Browser[("localStorage<br/>IndexedDB")]
+  UI --> Domain["Pure domain logic<br/>src/domain<br/>money, tax, numbering, QR"]
+  UI -->|template props| Worker["PDF Web Worker<br/>@react-pdf/renderer"]
+  Worker -->|PDF bytes| PdfJs["pdf.js worker<br/>preview images"]
+  Worker -->|PDF bytes| Download["Download + History"]
+  SW["Service worker<br/>precached app"] -.->|offline| UI
+```
+
+| Folder          | What's in it                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------------ |
+| `src/domain`    | Framework-free logic and Zod schemas: exact money maths, tax, numbering, export checks, QR codes |
+| `src/storage`   | Persisted stores with versioned migrations, cross-tab sync, backup and restore                   |
+| `src/templates` | The three PDF templates, written once for both the preview and the download                      |
+| `src/services`  | The PDF worker and pdf.js rasterising, loaded on demand                                          |
+| `src/features`  | Editor, preview, history, clients, business, settings, onboarding and export                     |
+| `src/app`       | Shell, navigation, top bar, update prompt and error boundary                                     |
+
+`src/domain` and `src/storage` are held at 100% test coverage in CI.
+
 ## Accessibility
 
 - Checked with axe-core in both themes, on desktop and phone layouts, with no violations. Text meets WCAG AA contrast.
@@ -109,7 +157,7 @@ npm run dev        # start the dev server at http://localhost:5173
 - [x] **M7** QR payments
 - [x] **M8** Export & history
 - [x] **M9** Polish, accessibility & PWA
-- [ ] **M10** Production release
+- [x] **M10** Production release (v1.0.0)
 
 ## License
 

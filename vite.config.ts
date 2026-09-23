@@ -1,12 +1,33 @@
 /// <reference types="vitest/config" />
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+type VercelConfig = { headers: { source: string; headers: { key: string; value: string }[] }[] }
+
+/**
+ * The security headers production sends (vercel.json), also sent by `vite preview`, so the
+ * built app can be tested under the same Content-Security-Policy. The dev server doesn't use
+ * them: its hot-reload scripts would be blocked.
+ */
+const vercel = JSON.parse(
+  readFileSync(new URL('./vercel.json', import.meta.url), 'utf8'),
+) as VercelConfig
+const { version } = JSON.parse(
+  readFileSync(new URL('./package.json', import.meta.url), 'utf8'),
+) as { version: string }
+
+const securityHeaders = Object.fromEntries(
+  vercel.headers.find((rule) => rule.source === '/(.*)')!.headers.map((h) => [h.key, h.value]),
+)
+
 // https://vite.dev/config/
 export default defineConfig({
+  preview: { headers: securityHeaders },
+  define: { __APP_VERSION__: JSON.stringify(version) },
   plugins: [
     react(),
     tailwindcss(),

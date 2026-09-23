@@ -5,7 +5,7 @@
 - **Project:** Paperless, a 100% free, local-first invoicing web app. It's a portfolio piece with no backend, database or auth.
 - **Repo:** `C:\Users\Computer\Documents\GitHub\Paperless`, remote `https://github.com/4bdulllahh/Paperless-Web.git`, branch `main`.
 - **Live site:** https://paperless-bay-zeta.vercel.app/ (Vercel Hobby tier; every push to `main` deploys automatically).
-- **Last milestone:** Milestone 9 (accessibility, offline/PWA, polish), committed on `main`.
+- **Last milestone:** Milestone 10 (production release), tagged `v1.0.0`. All planned milestones are done.
   - CI passed.
   - Live deploy verified: the QR codes scanned correctly off the live preview, with no console errors.
 - **Working tree:** clean. `handover.md` is tracked; keep it Prettier-formatted or CI's `format:check` fails (it did once).
@@ -133,15 +133,24 @@
 - Browser check: `m9.mjs <outDir> <distDir>` covers the SW, offline reload, preview, download and all panels offline, the update prompt (by appending to `dist/sw.js`), axe on every panel in both themes plus the phone layout, tab order and reduced motion. Omit `<distDir>` against the live site (see the script). axe-core and lighthouse are installed in the `shots` folder. Lighthouse runs with `CHROME_PATH` set to Edge (`C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`).
 - M10 note: `sw.js` and `index.html` must not be cached long by Vercel (they aren't by default). Keep them `max-age=0` when adding cache headers, and add `worker-src 'self' blob:` plus the service worker to the CSP checks.
 
-### M10: Production release (next)
+### M10: Production release (done, v1.0.0)
 
-- **`vercel.json` security headers:**
-  - CSP: `default-src 'self'`; `script-src 'self' 'sha256-<hash of inline theme script in index.html>'`; `worker-src 'self' blob:`; `img-src 'self' data: blob:`; `font-src 'self'`; `style-src 'self' 'unsafe-inline'` (react-pdf and Tailwind need checking); `connect-src 'self'`; `object-src 'none'`; `base-uri 'self'`; `frame-ancestors 'none'`
-  - also `Referrer-Policy`, `X-Content-Type-Options`, `Permissions-Policy`
-  - verify that the preview worker, pdf.js worker, fonts, logo and blob downloads all still work under CSP
-- **Cache headers** for `/assets/*` (immutable) and `/fonts/*`.
-- **README:** screenshots or GIF, features, architecture, privacy statement.
-- **Release:** tag `v1.0.0`, and bump `package.json` version to 1.0.0.
+- `vercel.json` sets the CSP and hardening headers for every path, `immutable` caching for `/assets/*`, a week for `/fonts/*`, and `max-age=0, must-revalidate` for `sw.js`, `index.html` and the manifest. HSTS comes from Vercel itself.
+- The CSP needed two exceptions, both found by running the app under it:
+  - `'wasm-unsafe-eval'` plus `connect-src data:`, because react-pdf's yoga layout engine is WebAssembly embedded as a `data:` URL
+  - `worker-src blob:`, because pdf.js starts `blob:` workers
+- Zod runs with `z.config({ jitless: true })` (top of `src/domain/schema.ts`). Otherwise its `new Function` probe logs a CSP violation on every load. pdf.js 6 uses no eval.
+- `vite preview` serves the same headers, read from `vercel.json` in `vite.config.ts`. `src/security.test.ts` checks that the inline theme script's sha256 is in the CSP, plus the other headers and cache rules. **If you edit the inline script in `index.html`, update the hash in `vercel.json`** (the test prints the problem).
+- Version 1.0.0, shown in Settings through the `__APP_VERSION__` define (declared in `src/globals.d.ts`).
+- README has screenshots in `docs/screenshots/*.webp`, captured with `m10shots.mjs` in the scratch `shots` folder, then resized with PIL. It also has features, privacy, security and architecture sections (a mermaid diagram).
+- Browser checks: `m10csp.mjs <outDir> <logo.png>` runs under the CSP and collects violations from the page and the workers. Also run `m8.mjs` and `m9.mjs`.
+
+### Possible next steps (only if the user asks)
+
+- Non-Latin PDF fonts (Arabic and Urdu don't print yet).
+- Previewing a History entry in the preview pane.
+- Balance due (not just the total) in History.
+- A custom domain, an `llms.txt`, and a real-device install test of the PWA.
 
 ## Known limitations and decisions
 

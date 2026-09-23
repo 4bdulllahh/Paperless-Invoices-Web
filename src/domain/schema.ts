@@ -1,6 +1,10 @@
 import { z } from 'zod'
 import { MONEY_SCALE, QUANTITY_SCALE, RATE_SCALE } from './decimal'
 
+// Zod can compile validators with `new Function`, which the site's Content-Security-Policy
+// forbids (it would report a violation on every load). The plain path is plenty fast here.
+z.config({ jitless: true })
+
 /**
  * Invoice data model. Numbers are stored as the decimal strings the user typed and only
  * converted to exact integers by the calculation engine (see calc.ts).
