@@ -1,185 +1,473 @@
-# Paperless: handover (2026-09-23)
+# Paperless: handover
 
-## Snapshot
+This file is for whoever picks up Paperless next, most likely a new Claude session with no memory of earlier work. The user will come back with feedback from people who tried the app. This file should be enough to understand the app, make the changes and ship them safely.
 
-- **Project:** Paperless, a 100% free, local-first invoicing web app. It's a portfolio piece with no backend, database or auth.
-- **Repo:** `C:\Users\Computer\Documents\GitHub\Paperless`, remote `https://github.com/4bdulllahh/Paperless-Web.git`, branch `main`.
-- **Live site:** https://paperless-bay-zeta.vercel.app/ (Vercel Hobby tier; every push to `main` deploys automatically).
-- **Last release:** v1.1.0 (the user's feedback round after v1.0.0), tagged `v1.1.0`. All planned milestones are done.
-  - CI passed.
-  - Live deploy verified: the QR codes scanned correctly off the live preview, with no console errors.
-- **Working tree:** clean. `handover.md` is tracked; keep it Prettier-formatted or CI's `format:check` fails (it did once).
-- **Checks passing:**
-  - lint, format:check, typecheck and build
-  - 427 tests
-  - 100% coverage on `src/domain/**` and `src/storage/**`, which CI enforces
-- **Start-up JS:** about 134.4 KB gzipped (entry ~88.5 + shared `stores` chunk ~42.6 + jsx-runtime ~3.4). History, Clients, Business, Settings and the setup wizard are lazy (`src/app/lazyPanels.ts`, ~17 KB total).
-- **Lighthouse (local build):** mobile 95/100/100/100 (perf/a11y/best practices/SEO after adding robots.txt), desktop 100 across the board. The PDF engine and QR encoder are lazy chunks, loaded by the worker or a dynamic import.
+Read it all once before changing anything. Keep it up to date as the last step of every change: update [Current state](#current-state) and anything that stopped being true.
 
-## How the user works
+## Contents
 
-- The user drives progress one milestone at a time with messages like "milestone 8". Don't start the next milestone without that go-ahead.
-- The user granted full control: all bash commands allowed, commit and push to `main` directly.
-- Commit style: `feat: <plain summary> (Milestone N)`, a body explaining the what and why, and the trailer `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
-- After each milestone:
-  1. Run all checks, then commit and push.
-  2. Wait for CI.
-  3. Confirm the Vercel deploy and verify the live site in Edge.
-  4. Update the README status line and roadmap tick.
-  5. Give the user a plain summary covering what was built, what was verified, any bugs found and limitations. End by naming the next milestone.
-- Design rules (also in memory `paperless-project-brief.md`):
-  - artify360.com look with generous rounded corners
-  - palette `#FFFCF2 #CCC5B9 #403D39 #252422 #EB5E28` (flame is the accent)
-  - **no custom cursor**
-  - **single screen**: the page never scrolls, only the inner panes do
-  - must work at phone width with no sideways scroll
+1. [What Paperless is](#what-paperless-is)
+2. [Working with the user](#working-with-the-user)
+3. [Starting a session](#starting-a-session)
+4. [The app as a user sees it](#the-app-as-a-user-sees-it)
+5. [How the code is organised](#how-the-code-is-organised)
+6. [How data flows](#how-data-flows)
+7. [Saved data and storage](#saved-data-and-storage)
+8. [Where to make common changes](#where-to-make-common-changes)
+9. [Rules that must not break](#rules-that-must-not-break)
+10. [Checking your work](#checking-your-work)
+11. [Shipping a change](#shipping-a-change)
+12. [Windows environment notes](#windows-environment-notes)
+13. [Known limitations and ideas](#known-limitations-and-ideas)
+14. [Current state](#current-state)
 
-## Environment gotchas (Windows 11)
+## What Paperless is
 
-- **node/npm aren't on PATH in fresh shells.** Prefix PowerShell commands with:
-  `$env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User');`
-  Node is 24.19.0 at `C:\Program Files\nodejs`. The Bash tool can't find npm, so run npm in PowerShell.
-- **`gh` isn't installed.** Poll CI through the public API, where `<sha>` is `git rev-parse HEAD`:
-  `curl -s "https://api.github.com/repos/4bdulllahh/Paperless-Web/actions/runs?head_sha=<sha>" | grep -m2 -E '"(status|conclusion)"'`
-- **Confirm a Vercel deploy** by checking that `curl -s https://paperless-bay-zeta.vercel.app/` contains the new `index-<hash>.js` name from `dist/`.
-- **Browser checks** use playwright-core with the system Edge (`chromium.launch({ channel: 'msedge' })`).
-  - Scripts and their `node_modules` are in `C:\Users\Computer\AppData\Local\Temp\claude\c--Users-Computer-Documents-GitHub-Paperless\b1bb66cb-2aaa-45fa-92c7-870c4290f063\scratchpad\shots\`: `m3.mjs`–`m7.mjs`, `m6perf.mjs`, `live.mjs`, `warm.mjs`.
-  - Run them from that folder: `node m7.mjs <outDir> <path-to-jsQR.js>`.
-  - `m7.mjs` reads `process.env.URL`, defaulting to `http://localhost:4173`.
-  - If the folder is gone, reinstall with `npm i playwright-core` in a scratch folder.
-- **Local production server:** `npm run build`, then `npx vite preview --port 4173 --strictPort` as a background task. Stop it afterwards with `Stop-Process` on the process listening on 4173.
-- **Viewing generated PDFs:**
-  1. Set `PDF_OUT=<folder>`, then run `npx vitest run src/templates` to save them.
-  2. Convert pages to PNG: `python -c "import fitz; ..."` (PyMuPDF is installed).
-- **Editing:**
-  - Use the Edit tool for multi-line edits. Python heredoc replacements have mangled `\n` and `\s` escapes before.
-  - Oxlint forbids `../` imports inside `src/domain/**`.
-- **Timing:** headless Edge has a minimum width of 492px, so use playwright contexts for phone viewports (390×844). Editor collapsibles close when you switch panels, so browser scripts must reopen them.
+Paperless is a free invoice generator that runs entirely in the browser. It's a portfolio piece.
 
-## Architecture (current state)
+- **No backend:** no server, database, accounts or analytics. Everything is saved on the user's device, in localStorage and IndexedDB.
+- **Output:** a real A4 PDF, generated in the browser. The preview shows that same PDF drawn as an image, so the preview and the download can't differ.
+- **Offline:** a service worker keeps a copy of the app. It's a website, not an installable app, and it has no web app manifest on purpose. The user said a phone app may come later, as a separate project.
+
+| What        | Where                                                                     |
+| ----------- | ------------------------------------------------------------------------- |
+| Repo        | `C:\Users\Computer\Documents\GitHub\Paperless`, branch `main`             |
+| Remote      | https://github.com/4bdulllahh/Paperless-Web                               |
+| Live site   | https://paperless-bay-zeta.vercel.app/                                    |
+| Hosting     | Vercel Hobby. Every push to `main` deploys automatically.                 |
+| CI          | GitHub Actions, `.github/workflows/ci.yml`. Runs on every push to `main`. |
+| Public docs | `README.md`: features, architecture, privacy, security and the roadmap.   |
+
+## Working with the user
+
+- **Permissions:** the user has given full control. You can run any command and commit and push straight to `main`. There are no pull requests.
+- **Feedback:** the user writes one message listing several changes, often informally. Treat each item as a requirement. When an item is unclear, look at any screenshot and pick the sensible reading. Say which reading you chose in the summary rather than stopping to ask.
+- **Finish the work:** implement everything, verify it, ship it and report. Don't stop half way to ask for approval.
+- **Commit message:**
+  - Subject: `feat: <plain summary>` or `fix: <plain summary>`. Put the version in brackets for releases, e.g. `(v1.2.0)`.
+  - Body: what changed and why.
+  - Trailer: `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` (or whatever attribution line the session's system reminder gives).
+- **The final message:** a plain summary for the user covering what changed (one line per request), what was verified on the live site, and limitations or things they need to do. The user isn't interested in code details.
+- **Design rules.** The user set these and cares about them:
+  - The look follows artify360.com: soft, generously rounded cards and controls.
+  - Palette: `#FFFCF2` cream, `#CCC5B9` sand, `#403D39` olive, `#252422` ink, `#EB5E28` flame (the accent). Tokens are in `src/index.css`.
+  - **No custom cursor.**
+  - **Single screen:** the page itself never scrolls. Only panes inside it scroll (the editor, the preview, panels).
+  - **Phone width works:** 390 px wide with no sideways scrolling. Below the `lg` breakpoint, the layout switches to an Edit/Preview toggle and a bottom tab bar.
+  - UI text is plain, friendly English with curly quotes and apostrophes (’ “ ”).
+
+## Starting a session
+
+1. Read this file, then skim `README.md`.
+2. `git pull` and `git log --oneline -10` to see if anything changed since this file was written.
+3. In PowerShell, fix PATH, then install and check (see [Windows environment notes](#windows-environment-notes)):
+   ```powershell
+   $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
+   npm ci
+   npm run check        # lint, format check, typecheck, tests
+   ```
+4. `npm run dev` for development (http://localhost:5173). The dev server doesn't send the security headers. To test the real policy, use a production build (see [Checking your work](#checking-your-work)).
+5. Open the app, click "Explore with sample data" in the setup wizard, and look at what the feedback is about before touching code.
+
+## The app as a user sees it
+
+**First visit.** A setup wizard (`src/features/onboarding/OnboardingWizard.tsx`) covers the whole screen. Its four steps:
+
+1. **Country (required):** fills in currency, number format, tax name and rate, tax number label, title and amount in words.
+2. **Business details:** name and email are required.
+3. **Invoice defaults:** payment terms, numbering and so on.
+4. **Getting paid:** payment instructions, accepted methods and QR code.
+
+"Explore with sample data" skips the wizard and loads a demo business, client and invoice (`src/domain/sample.ts`). After setup, the first invoice is empty apart from the user's defaults.
+
+**The workspace** (`src/app/AppShell.tsx`):
+
+- **Top bar** (`TopBar.tsx`): brand (the page's `h1`), invoice number, a Draft/Downloaded/Edited badge, theme toggle and **Download PDF**.
+- **Nav rail** (desktop) or bottom tab bar (phone): Invoice, History, Clients, Business, Settings (`navigation.ts`).
+- **Main area:** on desktop, the current panel sits on the left and the live preview is always on the right. On a phone, Invoice has an Edit/Preview toggle and the other panels hide the preview.
+
+**Panels:**
+
+| Panel    | File                                      | What it does                                                                                                                                                                                                                                   |
+| -------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Invoice  | `src/features/editor/EditorPane.tsx`      | Collapsible sections in this order: Bill to (with saved-client combobox), Items, Tax & discounts, Title, number & dates, From, Payment, Notes. A totals footer shows the balance due, with an expandable breakdown. Every keystroke autosaves. |
+| History  | `src/features/history/HistoryPanel.tsx`   | Every downloaded invoice. Search, filter (All/Unpaid/Overdue/Paid), mark paid with a date, download again exactly as issued, duplicate as a new draft, delete.                                                                                 |
+| Clients  | `src/features/clients/ClientsPanel.tsx`   | Saved "Bill to" details, added with "Save to clients" in the editor. Search, put one on the current invoice, delete.                                                                                                                           |
+| Business | `src/features/business/BusinessPanel.tsx` | Business details, logo (resized to PNG), and payment details: instructions, accepted methods, payment link, and a QR code of type link, UPI or SEPA.                                                                                           |
+| Settings | `src/features/settings/SettingsPanel.tsx` | Country, currency, locale, tax, terms, numbering, title, template and words (`InvoiceDefaultsForm.tsx`). Also data (backup export/import, erase everything; `DataSection.tsx`), "Run setup again", and the version plus GitHub link.           |
+
+**Preview pane** (`src/features/preview/PreviewPane.tsx`):
+
+- a template dropdown with six templates
+- the page image(s)
+- a floating zoom bar: out, a % label that resets to fit width, in, and fit page/fit width
+- Ctrl/⌘ + wheel and pinch also zoom (`usePreviewZoom.ts`)
+
+**Download.** Clicking Download PDF runs these checks first (`src/domain/export.ts` → `exportIssues`):
+
+- a client name
+- at least one item with a description and price
+- an invoice number not already used by another History entry
+- a sender name
+
+Any problems appear in a popover, each with a button that jumps to the section to fix. A successful download saves a snapshot to History. The first download of a draft also uses up the next invoice number. A "Start a new invoice" note follows.
+
+**Other UI:**
+
+- `StorageIssueBanner`: storage full, blocked or data unreadable.
+- `UpdatePrompt`: a one-time "works offline" note, and "New version ready → Reload".
+- `ErrorBoundary`: a crash screen with Reload and "Download a backup".
+
+## How the code is organised
 
 - **Stack:**
-  - React 19.2, Vite 8, TypeScript 6 (strict), Tailwind v4 (CSS-first `@theme` in `src/index.css`)
-  - oxlint, Prettier, Vitest 5 (jsdom; `src/templates/templates.test.tsx` uses the node environment), GitHub Actions CI (`.github/workflows/ci.yml`)
-- **`src/domain/`:** pure logic and Zod schemas, 100% covered.
-  - `decimal.ts`, `money.ts`, `calc.ts`: exact BigInt money maths, integer minor units, tax per rate, exclusive or inclusive tax.
-  - `schema.ts`: the invoice schema.
-  - `records.ts`: profile, payment, logo, settings, client and history schemas, plus `emptyPaymentDetails`, `QR_METHODS`, `paymentLinkIssue`.
-  - `viewModel.ts`: `buildInvoiceViewModel`, which formats everything the templates print.
-  - `export.ts` (M8): `exportIssues(invoice, history)` → `{section, message}[]`, `claimsNextNumber`, `invoiceFileName`, `draftState` (draft/downloaded/edited), `findNumberClash`.
-  - `history.ts` (M8): `entryStatus`, `filterHistory`, `countByFilter`, `issuedAssets`.
-  - `equal.ts`: `sameData` deep equality.
-  - `draft.ts` also has `duplicateInvoice`.
-  - `paymentQr.ts` (M7): `paymentQr`, `invoicePaymentQr`, `upiIdIssue`, `ibanIssue`, `bicIssue`, `formatIban`, `compactIban`, `isValidIban`.
-  - `numbering.ts`: `formatInvoiceNumber`, pattern `INV-{YYYY}-{####}`.
-  - `draft.ts`, `lineItems.ts`, `clients.ts`, `dates.ts`, `format.ts`, `options.ts`, `decimalInput.ts`, `sample.ts`.
-- **`src/storage/`:** 100% covered.
-  - `persisted.ts`: `createPersistedStore(definition, initialData, actions)` provides versioned migrations, quarantine of unreadable data and `flushWrites`.
-  - `backends.ts`: localStorage and IndexedDB (idb-keyval), with a memory fallback.
-  - `broadcast.ts`: cross-tab sync.
-  - `backup.ts`: backup export and import with migrations, plus `clearAllData`.
-  - `onboarding.ts`: `finishOnboarding`, `loadSampleData`.
-  - `stores.ts`:
+  - React 19, Vite 8 and TypeScript 6 (strict)
+  - Tailwind CSS v4, configured in CSS (`@theme` in `src/index.css`, no tailwind config file)
+  - Zustand stores validated by Zod 4
+  - @react-pdf/renderer for PDFs and pdf.js (`pdfjs-dist`) for drawing them
+  - vite-plugin-pwa (Workbox) for offline
+  - Vitest with jsdom and Testing Library for tests; oxlint and Prettier for lint and format
+- **Node:** 24 (`.nvmrc`).
 
-    | Store              | Backend      | Version | Notes                                                                                                                                                                               |
-    | ------------------ | ------------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-    | `useProfileStore`  | localStorage | v3      | `business`, `payment {instructions, link, qr, upiId, iban, bic}`, `onboardingComplete`                                                                                              |
-    | `useLogoStore`     | IDB          |         |                                                                                                                                                                                     |
-    | `useSettingsStore` | localStorage |         | Has `claimSequence()`                                                                                                                                                               |
-    | `useDraftStore`    | localStorage |         | `startNewInvoice`, `duplicateIntoDraft`, `setInvoice`, `updateInvoice`, `clearDraft`                                                                                                |
-    | `useClientsStore`  | IDB          |         |                                                                                                                                                                                     |
-    | `useHistoryStore`  | IDB          | v2      | `{entries, logos}`; `recordInvoice(invoice, {payment, logo})`, `setStatus`, `removeEntry`; entries carry `issuedWith {payment, logoId} \| null` (null = pre-v2, print with current) |
+```
+src/
+  domain/       Pure TypeScript: schemas, money maths, formatting, rules. No React, no storage.
+  storage/      Persisted Zustand stores, backends, migrations, backup, cross-tab sync.
+  templates/    The six PDF templates (react-pdf components) and what they share.
+  services/     pdf.ts (PDF + rasterise, lazy), pdf.worker.ts, download.ts, logo.ts.
+  features/     UI by area: editor, preview, export, history, clients, business, settings, onboarding.
+  components/   ui/ (Button, Card, Field, Checkbox, Collapsible, SegmentedControl, InlineConfirm…) and brand/.
+  app/          AppShell, TopBar, NavRail, lazy panels, error boundary, update prompt, storage banner.
+  hooks/        useTheme, useHydrated, useStorageIssue.
+  lib/          cn (clsx + tailwind-merge), formatBytes.
+  test/         Vitest setup, the PWA register stub.
+  security.test.ts  Checks vercel.json headers against index.html.
+```
 
-- **`src/services/`:**
-  - `pdf.ts` (lazy-loaded):
-    - `renderInvoicePdf(props): Promise<Blob>` runs react-pdf in the `pdf.worker.ts` Web Worker, falling back to the main thread.
-    - `rasterizePdf` uses a shared pdf.js worker.
-    - `renderPreview`, `warmUp`.
-  - `download.ts`: `downloadBlob(blob, fileName)`, already written and not yet used.
-  - `logo.ts`.
-- **`src/templates/`:**
-  - `ModernTemplate`, `ClassicTemplate`, `MinimalTemplate`.
-  - `shared.tsx`: `PartyBlock`, `LogoImage`, `QrCode`, `PaymentAndNotes`, `PageFooter`.
-  - `layout.ts`: `TemplateProps {view, logo, payment, qr}` and the colours.
-  - `props.ts`: `buildTemplateProps(invoice, logo, payment)`. Both preview and download must use it.
-  - `qr.ts`: `qrMatrix`, `qrPath` (qrcode library, error correction M, vector path).
-  - `fonts.ts`, `render.tsx`, `registry.ts`, `InvoiceDocument.tsx`.
-- **`src/features/`:**
-  - `editor/`: `EditorPane` and its sections.
-  - `preview/`: `PreviewPane`, `useLivePdfPreview` (350 ms debounce).
-  - `business/`: `PaymentDetailsForm` has the QR select, UPI, IBAN and BIC fields.
-  - `settings/`, `clients/`, `onboarding/`.
-- **`src/app/`:**
-  - `AppShell.tsx`: nav rail and panels (all built; `PlaceholderPanel` was deleted). `fixIssue(section)` uses `flushSync` to show the editor, then `revealSection`.
-  - `TopBar.tsx`: number, Draft/Downloaded/Edited badge and `DownloadButton`.
-- **`src/features/export/`** (M8): `downloadInvoice.ts` (`downloadDraft`, `redownloadEntry`), `useDownloadInvoice`, `DownloadButton` (issues popover, done note with "Start a new invoice", error with retry).
-- **`src/features/history/HistoryPanel.tsx`** (M8): search, All/Unpaid/Overdue/Paid filter, mark paid with date, download again, duplicate (asks before replacing unsaved work), delete with confirm.
-- **`src/features/editor/revealSection.ts`**: section ids (`editor-section-<section>`) and `revealSection`.
+**`src/domain/`** is where most feedback lands. It's all pure functions, it must stay at 100% test coverage (CI enforces this), and oxlint forbids `../` imports inside it.
 
-## Remaining milestones
+| File                                                                     | Holds                                                                                                                                                                                                       |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema.ts`                                                              | The invoice schema (`invoiceSchema`, `Party`, `LineItem`), `TEMPLATE_IDS`, and the decimal-string validators. Also sets `z.config({ jitless: true })` at the top; see the rules.                            |
+| `records.ts`                                                             | Everything else that's saved: business profile, payment details (`PAYMENT_METHODS`, `QR_METHODS`), logo, settings, client and history entry.                                                                |
+| `decimal.ts`, `money.ts`, `calc.ts`                                      | Exact BigInt maths on integer minor units (cents, fils…). `calculateTotals` handles line discounts, invoice discount, tax per rate, exclusive or inclusive tax and amount paid. Never use floats for money. |
+| `viewModel.ts`                                                           | `buildInvoiceViewModel(invoice)`: every string a template prints, already formatted (money, dates, tax rows, title, total in words). Templates never calculate.                                             |
+| `draft.ts`                                                               | `createInvoiceDraft`, `followDefaults` (the draft follows Settings changes), `duplicateInvoice`, `isPristineDraft`.                                                                                         |
+| `countries.ts`                                                           | 63 country presets and `countrySettings(preset)` → Settings patch.                                                                                                                                          |
+| `words.ts`                                                               | `numberToWords` and `amountInWords` (unit names for 37 currencies; lakh/crore; "only").                                                                                                                     |
+| `export.ts`                                                              | `exportIssues`, `claimsNextNumber`, `invoiceFileName`, `draftState`, `findNumberClash`.                                                                                                                     |
+| `history.ts`                                                             | `entryStatus` (overdue is computed), `filterHistory`, `countByFilter`, `issuedAssets`.                                                                                                                      |
+| `paymentQr.ts`                                                           | UPI and SEPA (EPC069-12) QR payloads, IBAN/BIC/UPI validation.                                                                                                                                              |
+| `numbering.ts`                                                           | Number patterns like `INV-{YYYY}-{####}`.                                                                                                                                                                   |
+| `options.ts`                                                             | Dropdown options: currencies, locales, `TEMPLATE_OPTIONS` (name and description), payment terms.                                                                                                            |
+| `format.ts`, `dates.ts`                                                  | Intl formatting and ISO date helpers.                                                                                                                                                                       |
+| `lineItems.ts`, `clients.ts`, `decimalInput.ts`, `equal.ts`, `sample.ts` | Smaller helpers and the sample data.                                                                                                                                                                        |
 
-### M8: Export and history (done)
+## How data flows
 
-- Browser check script: `m8.mjs` in the old scratchpad `shots` folder (`node m8.mjs <outDir>`, reads `URL`). It covers the issues popover and focus, download filename and `%PDF`, the sequence 42→43, re-download without a claim, History mark paid / re-download / duplicate, the number-clash block, dark theme, and a phone viewport with no page or sideways scroll.
-- Decisions: logos and payment details are snapshotted per entry, with logos deduplicated in the history store. A number used by another History entry blocks download. The claim checks the number against both the issue date and today, so moving the issue date to another year still claims.
+**Editing and preview:**
 
-### M9: Polish, accessibility and PWA (done)
+```
+Editor field ──update()──▶ useDraftStore (autosaved to localStorage)
+                                │
+            useLivePdfPreview (350 ms debounce; waits for the logo to load)
+                                │
+     buildTemplateProps(invoice, logo, payment)      ← templates/props.ts
+        = buildInvoiceViewModel + payment QR
+                                │
+     services/pdf.ts (lazy import) → pdf.worker.ts → react-pdf → PDF bytes
+                                │
+     pdf.js worker rasterises each page to PNG at `resolution` px (1240, more when zoomed)
+                                │
+     <img> pages in PreviewPane
+```
 
-- `InlineConfirm` (`src/components/ui/InlineConfirm.tsx`) for every in-place question: focuses Cancel, Escape cancels, `returnFocus` ref gets focus back. Used in the editor, History, Clients and Settings → Data.
-- Download note returns focus to the button on Escape/Close/timeout-while-focused. The Download button is no longer disabled while IDB loads (the flow already waits).
-- `ErrorBoundary` around the app, with Reload and "Download a backup". Preview error now has "Try again" (`retry` from `useLivePdfPreview`). Logo field shows "Loading…" until the logo store hydrates.
-- Contrast fixes found by axe: light `--accent-hover` is now `#f0733f` (lighter, 5.3:1 with ink), dark `--fg-subtle` `#a6a094`, no faded filter counts, "No logo" text `#6b665f`, skeleton marked `aria-hidden`, mobile Edit/Preview toggle inside a `<nav>`.
-- PWA: `vite-plugin-pwa` 1.3 (`registerType: 'prompt'`, `injectRegister: false`), manifest and icons `public/pwa-192.png`, `pwa-512.png`, `pwa-maskable-512.png` (made with `icons.mjs` in the scratch `shots` folder). Precache is 43 files / ~5.4 MB, including the PDF engine, pdf.js worker and fonts. `src/app/UpdatePrompt.tsx` shows "works offline" once and "new version ready → Reload" (flushes IDB writes first) and checks for updates hourly. Vitest aliases `virtual:pwa-register/react` to `src/test/pwaRegister.ts`.
-- Browser check: `m9.mjs <outDir> <distDir>` covers the SW, offline reload, preview, download and all panels offline, the update prompt (by appending to `dist/sw.js`), axe on every panel in both themes plus the phone layout, tab order and reduced motion. Omit `<distDir>` against the live site (see the script). axe-core and lighthouse are installed in the `shots` folder. Lighthouse runs with `CHROME_PATH` set to Edge (`C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`).
-- M10 note: `sw.js` and `index.html` must not be cached long by Vercel (they aren't by default). Keep them `max-age=0` when adding cache headers, and add `worker-src 'self' blob:` plus the service worker to the CSP checks.
+**Download** (`src/features/export/downloadInvoice.ts` → `downloadDraft`):
 
-### M10: Production release (done, v1.0.0)
+1. Wait for History and the logo to load from IndexedDB.
+2. Run `exportIssues`, and stop if there are any.
+3. Render with **the same `buildTemplateProps`** as the preview, then save the file as `Invoice <number> - <client>.pdf`.
+4. `claimsNextNumber` decides whether this draft uses up the sequence.
+5. `recordInvoice` saves a snapshot with the payment details and logo it was printed with. `redownloadEntry` uses that snapshot later, so re-downloads never change.
 
-- `vercel.json` sets the CSP and hardening headers for every path, `immutable` caching for `/assets/*`, a week for `/fonts/*`, and `max-age=0, must-revalidate` for `sw.js`, `index.html` and the manifest. HSTS comes from Vercel itself.
-- The CSP needed two exceptions, both found by running the app under it:
-  - `'wasm-unsafe-eval'` plus `connect-src data:`, because react-pdf's yoga layout engine is WebAssembly embedded as a `data:` URL
-  - `worker-src blob:`, because pdf.js starts `blob:` workers
-- Zod runs with `z.config({ jitless: true })` (top of `src/domain/schema.ts`). Otherwise its `new Function` probe logs a CSP violation on every load. pdf.js 6 uses no eval.
-- `vite preview` serves the same headers, read from `vercel.json` in `vite.config.ts`. `src/security.test.ts` checks that the inline theme script's sha256 is in the CSP, plus the other headers and cache rules. **If you edit the inline script in `index.html`, update the hash in `vercel.json`** (the test prints the problem).
-- Version 1.0.0, shown in Settings through the `__APP_VERSION__` define (declared in `src/globals.d.ts`).
-- README has screenshots in `docs/screenshots/*.webp`, captured with `m10shots.mjs` in the scratch `shots` folder, then resized with PIL. It also has features, privacy, security and architecture sections (a mermaid diagram).
-- Browser checks: `m10csp.mjs <outDir> <logo.png>` runs under the CSP and collects violations from the page and the workers. Also run `m8.mjs` and `m9.mjs`.
+**Settings changes reach the open draft.** `updateSettings` in `stores.ts` runs `followDefaults`: any draft field still equal to the old default takes the new one, and fields edited on the invoice itself stay put. Drafts already in History are left alone. This is what made the footer currency follow Settings in v1.1. If you add a setting that has a matching invoice field, add it to `followDefaults` too.
 
-### v1.1: the user's feedback round (done)
+Business details follow the same pattern: `updateBusiness` updates the draft's `from` while it still matches the old profile.
 
-The user asked for eight changes after v1.0.0:
+## Saved data and storage
 
-- **Totals shown in dollars:** Settings changes didn't reach the open draft. `followDefaults` (domain/draft.ts) is applied by `updateSettings`: every draft field still at the old default takes the new one (currency, locale, tax mode and label, template, title, tax number label, words, due date via terms, number via pattern, and item tax rates). It skips drafts already in History and doesn't run on `claimSequence`.
-- **Empty first run:** the setup wizard has 4 steps. The country comes first and is required. The initial `taxLabel` is now `''`.
-- **Country presets:** `domain/countries.ts` has 63 countries: currency, English-variant locale (so PDFs never print scripts the fonts lack), tax label and standard rate as of 2026, tax number label, `Tax invoice` title where required, amount in words where customary, and a legal note (e.g. e-invoicing mandates in IT, BE, PL, SA, MX…). `CountryField` (features/settings) is used in the wizard and Settings. Changing the country re-applies the preset.
-- **New fields, with Zod defaults so no migration is needed:**
-  - invoice: `title`, `taxIdLabel`, `amountInWords`
-  - settings: `country`, `documentTitle`, `taxIdLabel`, `amountInWords`
-  - payment: `methods` (`bank`/`card`/`cash`/`cheque`)
-- **Templates:** six now (added `bold`, `corporate`, `compact`). Names and descriptions are in `TEMPLATE_OPTIONS` (domain/options.ts). The picker is a dropdown in the preview header and Settings. Shared `TotalInWords`; `PaymentAndNotes` prints "Accepted: …" and "Cheques payable to …".
-- **Amount in words:** `domain/words.ts`. It covers 37 currencies with unit names, uses lakh/crore for INR/PKR/BDT/NPR, adds "only" for South Asia and the Gulf, and falls back to the Intl currency name plus a fraction.
-- **Not an installable app:** `manifest: false` in VitePWA, and the PWA icons are deleted. The offline service worker stays. The user had installed the app window from M9; they need to uninstall it from that window's menu or from edge://apps.
-- **Preview zoom:** `usePreviewZoom` gives fit width (default, remembered in localStorage), steps of 50–300%, fit page, Ctrl/⌘+wheel (capped at ~1.2× per notch) and touch pinch. The render resolution scales from 1240 to 3720 px. The pane is a focusable region. The TopBar brand is now the page's `h1`.
-- **Checks:**
-  - 496 tests; coverage of domain and storage still 100%
-  - start-up JS ~133.9 KB gzipped
-  - `m11.mjs` covers first run, country, the footer currency fix, zoom, the templates, download and phone, with axe clean
-  - `m8`, `m9` and `m10csp` updated and passing
+All stores are created by `createPersistedStore` (`src/storage/persisted.ts`). It adds:
 
-### Possible next steps (only if the user asks)
+- **Validation:** every load is checked against the store's Zod schema.
+- **Versions:** a version number and `migrations[n]`, which upgrades data from version n−1 to n.
+- **Quarantine:** unreadable data is kept under `<key>:quarantine:<time>` and never deleted. The user sees a banner.
+- **Cross-tab sync:** over a BroadcastChannel (`broadcast.ts`).
+- **Helpers:** `whenHydrated(store)` and `flushWrites()`, which waits for IndexedDB writes.
 
-- Non-Latin PDF fonts (Arabic and Urdu don't print yet).
-- Previewing a History entry in the preview pane.
-- Balance due (not just the total) in History.
-- A custom domain, an `llms.txt`, and a real-device install test of the PWA.
+| Store (`src/storage/stores.ts`) | Key                  | Backend      | Version | Contents                                                                                  |
+| ------------------------------- | -------------------- | ------------ | ------- | ----------------------------------------------------------------------------------------- |
+| `useProfileStore`               | `paperless:profile`  | localStorage | 3       | `business` (Party), `payment` (PaymentDetails), `onboardingComplete`                      |
+| `useLogoStore`                  | `paperless:logo`     | IndexedDB    | 1       | `logo` (PNG data URL and size) or null                                                    |
+| `useSettingsStore`              | `paperless:settings` | localStorage | 1       | Defaults for new invoices, `country`, `nextSequence`                                      |
+| `useDraftStore`                 | `paperless:draft`    | localStorage | 1       | `invoice`, the one being edited                                                           |
+| `useClientsStore`               | `paperless:clients`  | IndexedDB    | 1       | `clients[]`                                                                               |
+| `useHistoryStore`               | `paperless:history`  | IndexedDB    | 2       | `entries[]` (invoice snapshot, `issuedWith`, status, paidAt) and `logos{}` (deduplicated) |
 
-## Known limitations and decisions
+The theme is stored separately at `paperless:theme` (`useTheme.ts`, mirrored in the inline script in `index.html`). The preview zoom is at `paperless:preview-zoom`.
 
-- **PDF scripts:** the PDF fonts cover Latin scripts only; ₹, ₦ and ₨ fall back to Inter per character.
-- **QR codes:**
-  - They follow the UPI and EPC069-12 specs and are verified by jsQR decoding, both in unit tests and off the rendered preview locally and live. Not yet tested with a real banking or UPI app.
-  - The PayPal.me amount-in-URL was deliberately left out.
-- **SEPA country check:** SEPA QR doesn't restrict IBAN countries; it only needs a valid checksum and an EUR invoice.
-- **Profile data:** the QR detail fields are stored as plain strings, so bad data means no QR code rather than quarantined profile data. The form commits only valid values: `CommitTextField` / `DecimalField`.
-- **History preview:** the preview pane always shows the current draft, even on the History panel. Previewing a selected history entry would be a nice M9 extra.
-- **History totals** show the invoice total, not the balance due.
+**Changing what's saved:**
+
+- **Adding a field:** give it a Zod `.default(...)` in the schema. Old saved data and old backups then load without a migration. v1.1 added `title`, `taxIdLabel`, `amountInWords`, `country`, `documentTitle`, `payment.methods` and others this way.
+- **Renaming, removing or restructuring:** bump the store's `version` and add `migrations[newVersion]`, then add a test in `src/storage/stores.test.ts`.
+- **Backups:** backup files (`backup.ts`) include each store's version and are migrated on import. A change that loads old data correctly also loads old backups.
+- **Checking the schema:** users have real data on their devices. Never make the schema stricter without checking that old data still parses.
+
+## Where to make common changes
+
+**Add a field to the invoice:**
+
+1. Add it to `invoiceSchema` in `domain/schema.ts` with a `.default()`.
+2. If it has a default in Settings, also add it to `settingsSchema` in `records.ts`, to `initialSettings` in `stores.ts`, to `createInvoiceDraft` and `followDefaults` in `draft.ts`, and to `InvoiceDefaultsForm.tsx`.
+3. Add the editor field in the right section under `features/editor/sections/`.
+4. Expose it through `viewModel.ts` if it prints, then use it in the templates. Update `sample.ts` if the demo should show it.
+5. Add tests in `schema.test.ts`, `draft.test.ts` and `viewModel.test.ts`. Coverage must stay at 100%.
+
+**Add or change a template:**
+
+1. Create `src/templates/<Name>Template.tsx`, starting by copying the closest existing one.
+2. Use the shared pieces in `shared.tsx`: `PartyBlock`, `LogoImage`, `QrCode`, `PaymentAndNotes`, `TotalInWords`, `PageFooter`. Use the column helpers and colours in `layout.ts`.
+3. Register it:
+   - add its id to `TEMPLATE_IDS` in `schema.ts`
+   - add one line to `TEMPLATES` in `registry.ts`
+   - add a name and description to `TEMPLATE_OPTIONS` in `options.ts`
+4. `src/templates/templates.test.tsx` renders every template, including long and edge-case invoices. Run it with `PDF_OUT` to look at the results (see [Checking your work](#checking-your-work)).
+5. react-pdf isn't the browser: it uses flexbox only and a limited set of CSS. It has no fonts other than the registered ones (`fonts.ts`). Check long names, many items (page breaks), no logo, a QR code, inclusive tax and amount in words.
+
+**Fix or add a country:** edit `ROWS` in `domain/countries.ts`. Use the `EU(...)` helper or `GULF` extras where they fit.
+
+- The `locale` must be an English variant (`en-AE`, `en-150`, …). `countries.test.ts` fails if money or dates would print characters the PDF fonts lack.
+- Use `note` for legal warnings, e.g. mandatory e-invoicing.
+- Rates are strings, such as `'20'` or `'8.875'`, or `''` for none or regional rates.
+- The country picker is `features/settings/CountryField.tsx`.
+
+**Amount in words:**
+
+- Add currency unit names to `CURRENCY_UNITS` in `domain/words.ts`. Currencies not listed fall back to Intl's English name plus a fraction.
+- Lakh/crore counting is set by `SOUTH_ASIAN_CURRENCIES`.
+- Currencies ending in "only" are set by `ONLY_CURRENCIES`.
+
+**Tax and totals:**
+
+- The rules are in `domain/calc.ts`; the tests in `calc.test.ts` are the spec.
+- The README section "How totals are calculated" describes the rounding rules. Keep it in sync.
+
+**Payment:**
+
+- Methods (bank, card, cash, cheque) are set by `PAYMENT_METHODS` and `PAYMENT_METHOD_LABELS` in `records.ts`.
+- The chips are in `features/business/PaymentDetailsForm.tsx`.
+- What prints is set by `PaymentAndNotes` in `templates/shared.tsx`.
+- QR codes are made in `domain/paymentQr.ts` and drawn by `templates/qr.ts`.
+
+**Editor layout and sections:**
+
+- The sections are in `features/editor/sections/`.
+- Section ids used by the "fix this" buttons are in `revealSection.ts`, as `editor-section-<name>`.
+- Field components: `TextField`, `TextAreaField` and `SelectField` (`Field.tsx`); `DecimalField` and `CommitTextField` only save valid values; `CheckboxField` and `ChoiceChips`.
+- Ask before destructive actions with `InlineConfirm`.
+
+**Colours, spacing, fonts:**
+
+- Design tokens (`--canvas`, `--surface`, `--fg`, `--accent`…) are in `src/index.css`, for light and dark (`[data-theme="dark"]`).
+- Use the token classes (`bg-surface`, `text-fg-subtle`, `rounded-lg`…), not raw hex values, in components.
+- The PDF has its own print colours, in `templates/layout.ts`.
+
+**Add a panel:** add an id to `PanelId` and `NAV_ITEMS` (`app/navigation.ts`), a lazy import in `app/lazyPanels.ts`, and a branch in `AppShell.tsx`.
+
+**Content Security Policy and headers:**
+
+- These live in `vercel.json`. `vite preview` reuses them.
+- If you edit the inline theme script in `index.html`, its sha256 in the CSP must change too. `src/security.test.ts` fails and prints the new hash.
+- If you add something that loads from another origin, a worker type or eval, update the CSP and test it under `vite preview`.
+
+**Text in the README:** the Features, Roadmap and screenshots sections describe the app. Update them when a change is visible to users.
+
+## Rules that must not break
+
+**Numbers and money:**
+
+- **Preview and download share `buildTemplateProps`.** Never build template props any other way.
+- **Money is exact.** Money is stored as decimal strings and calculated in BigInt minor units. Floats are only used for display (zoom, layout).
+- **An invoice number is used up only on the first successful download** (`claimsNextNumber`). Abandoned drafts don't waste numbers.
+- **History snapshots never change on re-download.** They print with their own saved payment details and logo (`issuedWith`). Entries saved before v2 have `issuedWith: null` and use the current ones.
+
+**PDF output:**
+
+- **PDF fonts are Latin only:** Inter, Space Grotesk and Libre Baskerville, in `public/fonts`. Inter fills missing currency symbols. Arabic, Urdu, Chinese and similar scripts print as empty boxes. That's why country locales are English variants.
+
+**Security policy:**
+
+- **The CSP has no `unsafe-eval`, and it must stay that way.** Zod runs `jitless`; pdf.js 6 uses no eval.
+- **The known exceptions are required:** `'wasm-unsafe-eval'` and `connect-src data:` (react-pdf's yoga layout engine is WebAssembly in a data: URL), and `worker-src blob:` (pdf.js).
+- **`sw.js` and `index.html` must never be cached long** (`vercel.json` sets `max-age=0`), or users get stuck on old versions.
+
+**Offline and PWA:**
+
+- **No web app manifest** (`manifest: false` in `vite.config.ts`). The user doesn't want an installable app window.
+- **Updates wait for the user to click Reload**, so a form is never swapped out mid-edit (`registerType: 'prompt'`).
+
+**Layout:**
+
+- **Single screen, phone width, no custom cursor.** See the design rules above.
+
+**Code and CI:**
+
+- **Keep domain and storage at 100% coverage.** CI runs `npm run test:coverage` with thresholds.
+- **Keep this file Prettier-formatted.** CI's `format:check` includes `handover.md`. Run `npx prettier --write handover.md`.
+- **Start-up JavaScript stays small** (about 134 KB gzipped). Heavy code (the PDF engine, pdf.js, QR, the non-editor panels) is loaded on demand. Don't import `services/pdf.ts` or `templates/*` statically from app code; use `import()`.
+
+## Checking your work
+
+**Checks to run before every push** (the same as CI):
+
+```powershell
+npm run lint; npm run format:check; npm run typecheck; npm run test:coverage; npm run build
+```
+
+`npm run check` runs the first four without coverage. `npm run format` fixes formatting.
+
+**Test layout:**
+
+- Test files sit next to the code (`*.test.ts`/`*.test.tsx`).
+- UI tests use Testing Library in jsdom. jsdom has no `ResizeObserver`, `scrollTo` or real layout, so code guards those calls.
+- `src/templates/templates.test.tsx` runs in Node and renders real PDFs.
+- `src/test/pwaRegister.ts` stubs the service-worker register module.
+
+**Look at the PDFs** without the browser:
+
+```powershell
+$env:PDF_OUT = "$env:TEMP\paperless-pdfs"; npx vitest run src/templates; Remove-Item Env:PDF_OUT
+```
+
+To view them as images, convert with PyMuPDF (installed):
+
+```bash
+python -c "import fitz,glob; [fitz.open(f)[0].get_pixmap(dpi=110).save(f[:-4]+'.png') for f in glob.glob(r'<folder>/*.pdf')]"
+```
+
+Then open the PNGs with the Read tool.
+
+**Test the production build locally** under the real CSP:
+
+```powershell
+npm run build
+npx vite preview --port 4173 --strictPort   # run as a background task
+```
+
+Afterwards, stop it with `Get-NetTCPConnection -LocalPort 4173 | ForEach-Object { Stop-Process -Id $_.OwningProcess }`.
+
+**Browser checks** use playwright-core driving the system Edge (`chromium.launch({ channel: 'msedge' })`).
+
+- **Where they are:** scripts written in earlier sessions live in the scratch folder `C:\Users\Computer\AppData\Local\Temp\claude\c--Users-Computer-Documents-GitHub-Paperless\b1bb66cb-2aaa-45fa-92c7-870c4290f063\scratchpad\shots\`, together with `node_modules` for playwright-core, axe-core and lighthouse.
+- **How to run:** run them from that folder. Each reads `URL` (default `http://localhost:4173`); set `URL=https://paperless-bay-zeta.vercel.app/` to check the live site.
+- **Scripts:**
+
+  | Script                           | What it checks                                                                                                                                                                                                             |
+  | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `m11.mjs <outDir>`               | The v1.1 regression and the best starting point: first run with a country, currency following Settings, zoom, all six templates, download, phone layout, and axe accessibility scans. Prints `errors: []` when clean.      |
+  | `m10csp.mjs <outDir> <logo.png>` | Runs the app under the real CSP (no bypass) and collects every violation from the page and workers: preview, logo, download, backup export, service worker. Any PNG works as the logo, e.g. `public/apple-touch-icon.png`. |
+  | `m8.mjs <outDir>`                | Download flow and History.                                                                                                                                                                                                 |
+  | `m9.mjs <outDir> [distDir]`      | Offline, update prompt, axe on every panel in both themes, tab order.                                                                                                                                                      |
+  | `m10shots.mjs <outDir>`          | Captures the README screenshots. Convert them to `docs/screenshots/*.webp` with PIL at about 1600 px wide.                                                                                                                 |
+
+- **If that folder is gone** (Temp gets cleaned): make a new scratch folder, run `npm i playwright-core axe-core`, and write a fresh script modelled on the m11 description above.
+  - Use `browser.newContext({ viewport, isMobile, hasTouch })` for phone sizes, since headless Edge windows can't go below 492 px.
+  - Use `bypassCSP: true` only in contexts where axe gets injected.
+- **Gotchas:** editor sections collapse when you switch panels, so scripts must reopen them. The one-time "works offline" note can cover things for a few seconds after the first load.
+
+**Accessibility:**
+
+- Every panel is scanned with axe in both themes. Keep it at zero violations.
+- Watch contrast: `opacity-*` on text counts, and `--accent-hover` was lightened for this reason.
+- Every scrollable region needs to be focusable.
+
+**Lighthouse (optional):** run from the scratch folder with `CHROME_PATH` set to `C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`. The last scores were mobile 95/100/100/100 and desktop 100 across the board.
+
+## Shipping a change
+
+1. Run all checks (above) and fix everything. Run the browser checks relevant to what changed, locally against `vite preview`.
+2. For a user-visible release:
+   - bump `version` in `package.json` and run `npm install --package-lock-only` so the lockfile matches
+   - update the README (Features, Roadmap line, screenshots if the look changed)
+   - update this file
+   - the version appears in Settings through `__APP_VERSION__`
+3. Commit and push to `main`. Commit from Bash, because PowerShell mangles quotes in multi-line messages:
+   ```bash
+   git add -A && git commit -F- <<'EOF'
+   feat: <summary> (v1.x.0)
+
+   <body>
+
+   Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+   EOF
+   git push origin main
+   ```
+4. Wait for CI. The `gh` CLI isn't installed, so use the public API:
+   ```bash
+   curl -s "https://api.github.com/repos/4bdulllahh/Paperless-Web/actions/runs?head_sha=$(git rev-parse HEAD)" | grep -m2 -E '"(status|conclusion)"'
+   ```
+5. Wait for Vercel. The deploy is live when `curl -s https://paperless-bay-zeta.vercel.app/` contains the new `index-<hash>.js` name from `dist/assets`.
+6. Run `m11.mjs` and `m10csp.mjs` against the live URL.
+7. Tag releases: `git tag -a v1.x.0 -m "..." && git push origin v1.x.0`.
+8. Write the plain summary for the user.
+
+Versioning: bug fixes bump the patch (1.1.1). A round of feature feedback bumps the minor version (1.2.0).
+
+## Windows environment notes
+
+- **Machine:** Windows 11. Node 24 is at `C:\Program Files\nodejs`.
+- **PATH:** fresh PowerShell shells don't have node or npm on PATH. Start npm commands with the `$env:Path = ...` line from [Starting a session](#starting-a-session). The Bash tool (Git Bash) can't find npm, so run npm and npx in PowerShell. git, curl and python work in Bash.
+- **PowerShell 5.1:** it has no `&&`. Use `;` or `if ($?) { … }`.
+- **Editing files:** use the Edit tool for multi-line code edits. Python heredoc replacements have mangled `\n` escapes in the past.
+- **Line endings:** `.gitattributes` normalises them. Don't be alarmed by CRLF warnings.
+
+## Known limitations and ideas
+
+**Limitations the user knows about:**
+
+- **Tax data:** the 63 country presets use 2026 standard rates. Reduced rates, US state sales tax and similar are left for the user to enter. Some countries require e-invoicing through government systems, and their notes say so. Paperless can't submit e-invoices.
+- **Scripts:** PDFs print Latin scripts only (see above).
+- **QR codes:** they follow the UPI and EPC specs and decode with jsQR in tests and off the live preview. They haven't been tested with a real banking app.
+- **Previewing History:** the preview always shows the current draft, even on the History panel.
+- **History totals:** History shows the invoice total, not the balance due after amount paid.
+- **No sync:** data lives in one browser. Backup and restore is the way to move it.
+- **The old app window:** anyone who installed it before v1.1 keeps it until they uninstall it from the window's ⋮ menu or edge://apps.
+
+**Ideas if feedback points that way** (not promised):
+
+- Arabic, Urdu or CJK PDF fonts, loaded only when needed
+- previewing a History entry
+- showing balance due in History
+- recurring invoices or quotes
+- more currencies in `words.ts`
+- a custom domain
+
+## Current state
+
+- **Version:** v1.1.0 (commit `3ee8b3e`, tagged). Released and verified live on 2026-09-23. Nothing is in progress.
+- **History of releases:**
+  - Milestones 1–10 built the app; M10 was tagged v1.0.0.
+  - v1.1.0 was the first round of user feedback:
+    - totals follow the Settings currency
+    - an empty first run
+    - the country step and presets
+    - six templates
+    - payment methods
+    - amount in words
+    - preview zoom
+    - the installable app window removed
+- **Health:**
+  - all checks and CI pass; 496 tests; domain and storage coverage 100%
+  - start-up JS about 134 KB gzipped
+  - axe clean
+  - zero CSP violations live
+- **Waiting on:** the next round of feedback from the user.
