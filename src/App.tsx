@@ -1,7 +1,12 @@
 import { AppShell } from './app/AppShell'
+import { ErrorBoundary } from './app/ErrorBoundary'
 
 function App() {
-  return <AppShell />
+  return (
+    <ErrorBoundary>
+      <AppShell />
+    </ErrorBoundary>
+  )
 }
 
 export default App

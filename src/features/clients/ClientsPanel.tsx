@@ -1,9 +1,11 @@
 import { FileInput, Search, Trash2, Users } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { TextField } from '../../components/ui/Field'
+import { InlineConfirm } from '../../components/ui/InlineConfirm'
 import { matchClients, partyOf } from '../../domain/clients'
+import type { Client } from '../../domain/records'
 import { useHydrated } from '../../hooks/useHydrated'
 import { cn } from '../../lib/cn'
 import { useClientsStore, useDraftStore } from '../../storage/stores'
@@ -24,12 +26,19 @@ export function ClientsPanel({
   const updateInvoice = useDraftStore((state) => state.updateInvoice)
   const [query, setQuery] = useState('')
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null)
+  const heading = useRef<HTMLHeadingElement>(null)
   const shown = matchClients(clients, query, Infinity)
 
   return (
     <Card className={cn('flex min-h-0 flex-col overflow-hidden', className)}>
       <div className="border-b border-line px-5 py-4">
-        <h1 className="font-display text-lg font-semibold tracking-tight">Clients</h1>
+        <h1
+          ref={heading}
+          tabIndex={-1}
+          className="font-display text-lg font-semibold tracking-tight focus:outline-none"
+        >
+          Clients
+        </h1>
         <p className="text-sm text-fg-subtle">
           Save clients from an invoice’s “Bill to” section to reuse them.
         </p>
@@ -70,62 +79,92 @@ export function ClientsPanel({
         ) : (
           <ul className="flex flex-col gap-2">
             {shown.map((client) => (
-              <li
+              <ClientRow
                 key={client.id}
-                className="flex flex-wrap items-center gap-3 rounded-lg border border-line p-3"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{client.name}</p>
-                  <p className="truncate text-sm text-fg-subtle">
-                    {[client.email, client.address.split('\n')[0]].filter(Boolean).join(' · ') ||
-                      'No contact details'}
-                  </p>
-                </div>
-                {confirmingDelete === client.id ? (
-                  <div className="flex gap-1.5">
-                    <Button
-                      size="sm"
-                      variant="danger"
-                      onClick={() => {
-                        removeClient(client.id)
-                        setConfirmingDelete(null)
-                      }}
-                    >
-                      Delete
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setConfirmingDelete(null)}>
-                      Cancel
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex gap-1.5">
-                    <Button
-                      size="sm"
-                      disabled={!hasDraft}
-                      onClick={() => {
-                        updateInvoice((invoice) => ({ ...invoice, to: partyOf(client) }))
-                        onUseClient()
-                      }}
-                    >
-                      <FileInput />
-                      Bill to
-                    </Button>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      className="size-9"
-                      aria-label={`Delete ${client.name}`}
-                      onClick={() => setConfirmingDelete(client.id)}
-                    >
-                      <Trash2 />
-                    </Button>
-                  </div>
-                )}
-              </li>
+                client={client}
+                canBill={hasDraft}
+                confirming={confirmingDelete === client.id}
+                onAskDelete={() => setConfirmingDelete(client.id)}
+                onCancelDelete={() => setConfirmingDelete(null)}
+                onDelete={() => {
+                  removeClient(client.id)
+                  setConfirmingDelete(null)
+                  // The row is gone, so keep keyboard focus in the panel.
+                  heading.current?.focus()
+                }}
+                onBill={() => {
+                  updateInvoice((invoice) => ({ ...invoice, to: partyOf(client) }))
+                  onUseClient()
+                }}
+              />
             ))}
           </ul>
         )}
       </div>
     </Card>
+  )
+}
+
+type ClientRowProps = {
+  client: Client
+  canBill: boolean
+  confirming: boolean
+  onAskDelete: () => void
+  onCancelDelete: () => void
+  onDelete: () => void
+  onBill: () => void
+}
+
+function ClientRow({
+  client,
+  canBill,
+  confirming,
+  onAskDelete,
+  onCancelDelete,
+  onDelete,
+  onBill,
+}: ClientRowProps) {
+  const deleteButton = useRef<HTMLButtonElement>(null)
+  return (
+    <li className="flex flex-wrap items-center gap-3 rounded-lg border border-line p-3">
+      {confirming ? (
+        <InlineConfirm
+          className="w-full"
+          confirmLabel="Delete"
+          returnFocus={deleteButton}
+          onConfirm={onDelete}
+          onCancel={onCancelDelete}
+        >
+          Delete <strong>{client.name}</strong> from your saved clients? Invoices already made
+          aren’t affected.
+        </InlineConfirm>
+      ) : (
+        <>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-medium">{client.name}</p>
+            <p className="truncate text-sm text-fg-subtle">
+              {[client.email, client.address.split('\n')[0]].filter(Boolean).join(' · ') ||
+                'No contact details'}
+            </p>
+          </div>
+          <div className="flex gap-1.5">
+            <Button size="sm" disabled={!canBill} onClick={onBill}>
+              <FileInput />
+              Bill to
+            </Button>
+            <Button
+              ref={deleteButton}
+              size="icon-sm"
+              variant="ghost"
+              className="size-9"
+              aria-label={`Delete ${client.name}`}
+              onClick={onAskDelete}
+            >
+              <Trash2 />
+            </Button>
+          </div>
+        </>
+      )}
+    </li>
   )
 }

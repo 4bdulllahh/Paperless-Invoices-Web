@@ -8,9 +8,9 @@ import { useDraftStore, useProfileStore } from './storage/stores'
 beforeEach(() => clearAllData())
 
 describe('first visit', () => {
-  it('opens the setup wizard over an inert workspace', () => {
+  it('opens the setup wizard over an inert workspace', async () => {
     render(<App />)
-    expect(screen.getByRole('dialog', { name: 'Set up Paperless' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'Set up Paperless' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Preview' }).closest('[inert]')).not.toBeNull()
   })
 
@@ -39,7 +39,7 @@ describe('App shell', () => {
     const [desktopNav] = screen.getAllByRole('navigation', { name: 'Main' })
     fireEvent.click(desktopNav.querySelector('button[aria-label="History"]')!)
 
-    expect(screen.getByRole('heading', { name: 'History' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'History' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Invoice details' })).not.toBeInTheDocument()
     expect(await screen.findByText('No invoices yet')).toBeInTheDocument()
   })

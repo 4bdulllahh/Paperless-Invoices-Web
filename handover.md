@@ -5,15 +5,16 @@
 - **Project:** Paperless, a 100% free, local-first invoicing web app. It's a portfolio piece with no backend, database or auth.
 - **Repo:** `C:\Users\Computer\Documents\GitHub\Paperless`, remote `https://github.com/4bdulllahh/Paperless-Web.git`, branch `main`.
 - **Live site:** https://paperless-bay-zeta.vercel.app/ (Vercel Hobby tier; every push to `main` deploys automatically).
-- **Last milestone:** Milestone 8 (PDF export and history), committed on `main`.
+- **Last milestone:** Milestone 9 (accessibility, offline/PWA, polish), committed on `main`.
   - CI passed.
   - Live deploy verified: the QR codes scanned correctly off the live preview, with no console errors.
 - **Working tree:** clean. `handover.md` is tracked; keep it Prettier-formatted or CI's `format:check` fails (it did once).
 - **Checks passing:**
   - lint, format:check, typecheck and build
-  - 419 tests
+  - 427 tests
   - 100% coverage on `src/domain/**` and `src/storage/**`, which CI enforces
-- **Main bundle:** about 138.5 KB gzipped (M8 added ~3.8 KB). The PDF engine and QR encoder are lazy chunks, loaded by the worker or a dynamic import.
+- **Start-up JS:** about 134.4 KB gzipped (entry ~88.5 + shared `stores` chunk ~42.6 + jsx-runtime ~3.4). History, Clients, Business, Settings and the setup wizard are lazy (`src/app/lazyPanels.ts`, ~17 KB total).
+- **Lighthouse (local build):** mobile 95/100/100/100 (perf/a11y/best practices/SEO after adding robots.txt), desktop 100 across the board. The PDF engine and QR encoder are lazy chunks, loaded by the worker or a dynamic import.
 
 ## How the user works
 
@@ -122,23 +123,17 @@
 - Browser check script: `m8.mjs` in the old scratchpad `shots` folder (`node m8.mjs <outDir>`, reads `URL`). It covers the issues popover and focus, download filename and `%PDF`, the sequence 42→43, re-download without a claim, History mark paid / re-download / duplicate, the number-clash block, dark theme, and a phone viewport with no page or sideways scroll.
 - Decisions: logos and payment details are snapshotted per entry, with logos deduplicated in the history store. A number used by another History entry blocks download. The claim checks the number against both the issue date and today, so moving the issue date to another year still claims.
 
-### M9: Polish, accessibility and PWA (next)
+### M9: Polish, accessibility and PWA (done)
 
-- **Accessibility:**
-  - keyboard pass: focus order, visible focus, dialogs trap focus and return it
-  - `aria-live` for "Downloaded" and errors
-  - check contrast in both themes
-  - reduced motion
-  - optionally axe-core via playwright
-- **Empty, error and loading states** across the panels.
-- **PWA:**
-  - manifest (name, icons from the crane `public/favicon.svg` and `apple-touch-icon.png`, theme `#f2eee4`, background cream)
-  - service worker precaching the app shell, fonts and PDF chunks so it works offline, e.g. `vite-plugin-pwa` (confirm it supports Vite 8) or a small hand-written SW
-  - update prompt
-- **Performance:** check Lighthouse; keep the main bundle around 135 KB gzipped.
-- **Optional, only if asked:** non-Latin PDF fonts (Arabic and Urdu don't print yet).
+- `InlineConfirm` (`src/components/ui/InlineConfirm.tsx`) for every in-place question: focuses Cancel, Escape cancels, `returnFocus` ref gets focus back. Used in the editor, History, Clients and Settings → Data.
+- Download note returns focus to the button on Escape/Close/timeout-while-focused. The Download button is no longer disabled while IDB loads (the flow already waits).
+- `ErrorBoundary` around the app, with Reload and "Download a backup". Preview error now has "Try again" (`retry` from `useLivePdfPreview`). Logo field shows "Loading…" until the logo store hydrates.
+- Contrast fixes found by axe: light `--accent-hover` is now `#f0733f` (lighter, 5.3:1 with ink), dark `--fg-subtle` `#a6a094`, no faded filter counts, "No logo" text `#6b665f`, skeleton marked `aria-hidden`, mobile Edit/Preview toggle inside a `<nav>`.
+- PWA: `vite-plugin-pwa` 1.3 (`registerType: 'prompt'`, `injectRegister: false`), manifest and icons `public/pwa-192.png`, `pwa-512.png`, `pwa-maskable-512.png` (made with `icons.mjs` in the scratch `shots` folder). Precache is 43 files / ~5.4 MB, including the PDF engine, pdf.js worker and fonts. `src/app/UpdatePrompt.tsx` shows "works offline" once and "new version ready → Reload" (flushes IDB writes first) and checks for updates hourly. Vitest aliases `virtual:pwa-register/react` to `src/test/pwaRegister.ts`.
+- Browser check: `m9.mjs <outDir> <distDir>` covers the SW, offline reload, preview, download and all panels offline, the update prompt (by appending to `dist/sw.js`), axe on every panel in both themes plus the phone layout, tab order and reduced motion. Omit `<distDir>` against the live site (see the script). axe-core and lighthouse are installed in the `shots` folder. Lighthouse runs with `CHROME_PATH` set to Edge (`C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`).
+- M10 note: `sw.js` and `index.html` must not be cached long by Vercel (they aren't by default). Keep them `max-age=0` when adding cache headers, and add `worker-src 'self' blob:` plus the service worker to the CSP checks.
 
-### M10: Production release
+### M10: Production release (next)
 
 - **`vercel.json` security headers:**
   - CSP: `default-src 'self'`; `script-src 'self' 'sha256-<hash of inline theme script in index.html>'`; `worker-src 'self' blob:`; `img-src 'self' data: blob:`; `font-src 'self'`; `style-src 'self' 'unsafe-inline'` (react-pdf and Tailwind need checking); `connect-src 'self'`; `object-src 'none'`; `base-uri 'self'`; `frame-ancestors 'none'`

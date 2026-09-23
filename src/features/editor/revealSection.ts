@@ -18,7 +18,8 @@ export function revealSection(section: ExportSection): boolean {
   const details = document.getElementById(sectionElementId(section))
   if (!(details instanceof HTMLDetailsElement)) return false
   details.open = true
-  details.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  details.scrollIntoView?.({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' })
   details.querySelector<HTMLElement>('input, textarea, select')?.focus({ preventScroll: true })
   return true
 }

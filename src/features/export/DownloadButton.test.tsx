@@ -136,7 +136,7 @@ describe('Download PDF', () => {
     vi.mocked(console.error).mockRestore()
   })
 
-  it('closes its note with Escape', async () => {
+  it('closes its note with Escape and returns focus to the button', async () => {
     useDraftStore.getState().startNewInvoice('2026-09-23')
     render(<App />)
     await clickDownload()
@@ -145,5 +145,6 @@ describe('Download PDF', () => {
     fireEvent.keyDown(document, { key: 'Escape' })
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Download PDF' })).toHaveFocus()
   })
 })

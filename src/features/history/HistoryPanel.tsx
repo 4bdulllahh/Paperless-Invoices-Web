@@ -8,11 +8,13 @@ import {
   Search,
   Trash2,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState, type RefObject } from 'react'
+import { flushSync } from 'react-dom'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { TextField } from '../../components/ui/Field'
+import { InlineConfirm } from '../../components/ui/InlineConfirm'
 import { SegmentedControl } from '../../components/ui/SegmentedControl'
 import { calculateTotals } from '../../domain/calc'
 import { todayIso } from '../../domain/dates'
@@ -63,6 +65,7 @@ export function HistoryPanel({
   const [pending, setPending] = useState<Pending | null>(null)
   const [downloading, setDownloading] = useState<string | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
+  const heading = useRef<HTMLHeadingElement>(null)
   const today = todayIso()
 
   const counts = useMemo(() => countByFilter(entries, today), [entries, today])
@@ -96,7 +99,13 @@ export function HistoryPanel({
   return (
     <Card className={cn('flex min-h-0 flex-col overflow-hidden', className)}>
       <div className="border-b border-line px-5 py-4">
-        <h1 className="font-display text-lg font-semibold tracking-tight">History</h1>
+        <h1
+          ref={heading}
+          tabIndex={-1}
+          className="font-display text-lg font-semibold tracking-tight focus:outline-none"
+        >
+          History
+        </h1>
         <p className="text-sm text-fg-subtle">
           Every invoice you download is saved here, newest first.
         </p>
@@ -129,7 +138,7 @@ export function HistoryPanel({
               label: (
                 <>
                   {FILTER_LABELS[value]}
-                  <span className="tabular-nums opacity-70">{counts[value]}</span>
+                  <span className="tabular-nums">{counts[value]}</span>
                 </>
               ),
             }))}
@@ -174,6 +183,8 @@ export function HistoryPanel({
                   draftIsSafe ? duplicate(entry) : setPending({ kind: 'duplicate', id: entry.id })
                 }
                 onConfirmDuplicate={() => duplicate(entry)}
+                // The row is gone, so keep keyboard focus in the panel.
+                onDeleted={() => heading.current?.focus()}
               />
             ))}
           </ul>
@@ -200,6 +211,7 @@ type HistoryRowProps = {
   onDownload: () => void
   onDuplicate: () => void
   onConfirmDuplicate: () => void
+  onDeleted: () => void
 }
 
 function HistoryRow({
@@ -213,8 +225,18 @@ function HistoryRow({
   onDownload,
   onDuplicate,
   onConfirmDuplicate,
+  onDeleted,
 }: HistoryRowProps) {
   const { setStatus, removeEntry } = useHistoryStore.getState()
+  const statusButton = useRef<HTMLButtonElement>(null)
+  const duplicateButton = useRef<HTMLButtonElement>(null)
+  const deleteButton = useRef<HTMLButtonElement>(null)
+
+  /** Close the inline form, and put focus back on a control in the row. */
+  function close(focus: RefObject<HTMLElement | null>) {
+    flushSync(() => setPending(null))
+    focus.current?.focus()
+  }
   const { invoice } = entry
   const total = useMemo(
     () => formatMoney(calculateTotals(invoice).total, invoice.currency, invoice.locale),
@@ -252,7 +274,10 @@ function HistoryRow({
           onSubmit={(e) => {
             e.preventDefault()
             setStatus(entry.id, 'paid', pending.date)
-            setPending(null)
+            close(statusButton)
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') close(statusButton)
           }}
         >
           <TextField
@@ -262,6 +287,7 @@ function HistoryRow({
             value={pending.date}
             max={today}
             required
+            autoFocus
             onChange={(e) => {
               // Only complete dates are kept, so "Save" never stores half a date.
               if (!validateDate(e.target.value)) setPending({ ...pending, date: e.target.value })
@@ -271,56 +297,44 @@ function HistoryRow({
             <Button size="sm" variant="primary" type="submit">
               Save
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setPending(null)}>
+            <Button size="sm" variant="ghost" onClick={() => close(statusButton)}>
               Cancel
             </Button>
           </div>
         </form>
       ) : pending?.kind === 'delete' ? (
-        <div
-          role="alertdialog"
-          aria-label={`Delete ${invoice.number}?`}
-          className="flex flex-wrap items-center gap-2 rounded-md bg-accent-soft px-3 py-2 text-sm"
+        <InlineConfirm
+          className="rounded-md bg-accent-soft px-3 py-2"
+          confirmLabel="Delete"
+          returnFocus={deleteButton}
+          onConfirm={() => {
+            removeEntry(entry.id)
+            onDeleted()
+          }}
+          onCancel={() => setPending(null)}
         >
-          <p className="min-w-0 flex-1">
-            Delete <strong>{invoice.number}</strong> from History? This can’t be undone.
-          </p>
-          <div className="flex gap-1.5">
-            <Button size="sm" variant="danger" onClick={() => removeEntry(entry.id)}>
-              Delete
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setPending(null)}>
-              Cancel
-            </Button>
-          </div>
-        </div>
+          Delete <strong>{invoice.number}</strong> from History? This can’t be undone.
+        </InlineConfirm>
       ) : pending?.kind === 'duplicate' ? (
-        <div
-          role="alertdialog"
-          aria-label="Replace the invoice you’re editing?"
-          className="flex flex-wrap items-center gap-2 rounded-md bg-accent-soft px-3 py-2 text-sm"
+        <InlineConfirm
+          className="rounded-md bg-accent-soft px-3 py-2"
+          confirmLabel="Replace"
+          returnFocus={duplicateButton}
+          onConfirm={onConfirmDuplicate}
+          onCancel={() => setPending(null)}
         >
-          <p className="min-w-0 flex-1">
-            <strong>Replace the invoice you’re editing?</strong> Its unsaved changes will be lost.
-          </p>
-          <div className="flex gap-1.5">
-            <Button size="sm" variant="danger" onClick={onConfirmDuplicate}>
-              Replace
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setPending(null)}>
-              Cancel
-            </Button>
-          </div>
-        </div>
+          <strong>Replace the invoice you’re editing?</strong> Its unsaved changes will be lost.
+        </InlineConfirm>
       ) : (
         <div className="flex flex-wrap items-center gap-1.5">
           {status === 'paid' ? (
-            <Button size="sm" onClick={() => setStatus(entry.id, 'unpaid')}>
+            <Button ref={statusButton} size="sm" onClick={() => setStatus(entry.id, 'unpaid')}>
               <RotateCcw />
               Mark unpaid
             </Button>
           ) : (
             <Button
+              ref={statusButton}
               size="sm"
               onClick={() => setPending({ kind: 'paid', id: entry.id, date: today })}
             >
@@ -341,6 +355,7 @@ function HistoryRow({
             <span className="hidden sm:inline">Download</span>
           </Button>
           <Button
+            ref={duplicateButton}
             size="sm"
             variant="ghost"
             className="px-3"
@@ -352,6 +367,7 @@ function HistoryRow({
             <span className="hidden sm:inline">Duplicate</span>
           </Button>
           <Button
+            ref={deleteButton}
             size="icon-sm"
             variant="ghost"
             className="ml-auto size-9"

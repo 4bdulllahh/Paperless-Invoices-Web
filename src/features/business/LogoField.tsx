@@ -1,11 +1,14 @@
 import { ImagePlus, Trash2 } from 'lucide-react'
 import { useRef, useState, type ChangeEvent } from 'react'
 import { Button } from '../../components/ui/Button'
+import { useHydrated } from '../../hooks/useHydrated'
 import { ACCEPTED_LOGO_TYPES, LogoError, prepareLogo } from '../../services/logo'
 import { useLogoStore } from '../../storage/stores'
 
 export function LogoField() {
   const logo = useLogoStore((state) => state.logo)
+  // The logo loads from IndexedDB; don't claim there's none before it has.
+  const loaded = useHydrated(useLogoStore)
   const setLogo = useLogoStore((state) => state.setLogo)
   const removeLogo = useLogoStore((state) => state.removeLogo)
   const input = useRef<HTMLInputElement>(null)
@@ -37,12 +40,12 @@ export function LogoField() {
           {logo ? (
             <img src={logo.dataUrl} alt="Your logo" className="size-full object-contain" />
           ) : (
-            <span className="text-xs text-[#a39c91]">No logo</span>
+            <span className="text-xs text-[#6b665f]">{loaded ? 'No logo' : 'Loading…'}</span>
           )}
         </div>
         <div className="flex flex-col items-start gap-1.5">
           <div className="flex gap-2">
-            <Button size="sm" onClick={() => input.current?.click()} disabled={busy}>
+            <Button size="sm" onClick={() => input.current?.click()} disabled={busy || !loaded}>
               <ImagePlus />
               {busy ? 'Processing…' : logo ? 'Replace' : 'Upload logo'}
             </Button>

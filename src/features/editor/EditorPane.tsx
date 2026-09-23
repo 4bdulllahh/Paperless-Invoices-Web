@@ -9,10 +9,11 @@ import {
   StickyNote,
   UserRound,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Collapsible } from '../../components/ui/Collapsible'
+import { InlineConfirm } from '../../components/ui/InlineConfirm'
 import { TextAreaField } from '../../components/ui/Field'
 import { isPristineDraft } from '../../domain/draft'
 import { draftState } from '../../domain/export'
@@ -42,6 +43,7 @@ export function EditorPane({ className, onEditProfile }: EditorPaneProps) {
   const startNewInvoice = useDraftStore((state) => state.startNewInvoice)
   const history = useHistoryStore((state) => state.entries)
   const [confirmingNew, setConfirmingNew] = useState(false)
+  const newButton = useRef<HTMLButtonElement>(null)
   // All the numbers come from the calculation engine, recomputed once per change.
   const view = useMemo(() => (invoice ? buildInvoiceViewModel(invoice) : null), [invoice])
 
@@ -86,40 +88,30 @@ export function EditorPane({ className, onEditProfile }: EditorPaneProps) {
             <span className="hidden sm:inline">Saved automatically on this device</span>
           </p>
         </div>
-        <Button variant="ghost" size="sm" onClick={newInvoice}>
+        <Button ref={newButton} variant="ghost" size="sm" onClick={newInvoice}>
           <FilePlus2 />
           New invoice
         </Button>
       </div>
 
       {confirmingNew && (
-        <div
-          role="alertdialog"
-          aria-labelledby="new-invoice-title"
-          className="flex flex-col gap-3 border-b border-line bg-accent-soft px-5 py-4 text-sm"
+        <InlineConfirm
+          className="border-b border-line bg-accent-soft px-5 py-4"
+          confirmLabel="Start new invoice"
+          cancelLabel="Keep editing"
+          returnFocus={newButton}
+          onConfirm={() => {
+            startNewInvoice()
+            setConfirmingNew(false)
+            newButton.current?.focus()
+          }}
+          onCancel={() => setConfirmingNew(false)}
         >
-          <p id="new-invoice-title">
-            <strong>Start a new invoice?</strong>{' '}
-            {state === 'edited'
-              ? 'Changes since your last download will be lost. The downloaded copy stays in History.'
-              : 'This one will be cleared from the editor.'}
-          </p>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="danger"
-              onClick={() => {
-                startNewInvoice()
-                setConfirmingNew(false)
-              }}
-            >
-              Start new invoice
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setConfirmingNew(false)}>
-              Keep editing
-            </Button>
-          </div>
-        </div>
+          <strong>Start a new invoice?</strong>{' '}
+          {state === 'edited'
+            ? 'Changes since your last download will be lost. The downloaded copy stays in History.'
+            : 'This one will be cleared from the editor.'}
+        </InlineConfirm>
       )}
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-3 sm:p-4">

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useHydrated } from '../../hooks/useHydrated'
 import type { PreviewPage } from '../../services/pdf'
 import { useDraftStore, useLogoStore, useProfileStore } from '../../storage/stores'
@@ -20,6 +20,8 @@ export function useLivePdfPreview() {
   const payment = useProfileStore((state) => state.payment)
   const [pages, setPages] = useState<PreviewPage[] | null>(null)
   const [status, setStatus] = useState<PreviewStatus>('loading')
+  // Bumped to redraw after a failure without waiting for the next edit.
+  const [attempt, setAttempt] = useState(0)
   const latestRequest = useRef(0)
   const shown = useRef<PreviewPage[]>([])
   const firstDraw = useRef(true)
@@ -51,7 +53,7 @@ export function useLivePdfPreview() {
       }
     }, delay)
     return () => clearTimeout(timer)
-  }, [invoice, logo, logoReady, payment])
+  }, [invoice, logo, logoReady, payment, attempt])
 
   // Load the PDF engine shortly after start-up, even before there's an invoice to draw (a new
   // visitor is still in the setup wizard), so the first preview doesn't wait on the network.
@@ -68,5 +70,7 @@ export function useLivePdfPreview() {
     return () => images.current.forEach((page) => URL.revokeObjectURL(page.url))
   }, [])
 
-  return { pages, status }
+  const retry = useCallback(() => setAttempt((n) => n + 1), [])
+
+  return { pages, status, retry }
 }

@@ -1,6 +1,7 @@
 import { Download, HardDrive, ShieldCheck, Trash2, Upload } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { Button } from '../../components/ui/Button'
+import { InlineConfirm } from '../../components/ui/InlineConfirm'
 import { formatBytes } from '../../lib/formatBytes'
 import { downloadBlob } from '../../services/download'
 import {
@@ -28,6 +29,8 @@ const formatWhen = (iso: string) =>
 /** Backup, restore and erase: the user's only copy of their data lives in this browser. */
 export function DataSection() {
   const fileInput = useRef<HTMLInputElement>(null)
+  const importButton = useRef<HTMLButtonElement>(null)
+  const deleteButton = useRef<HTMLButtonElement>(null)
   const [storage, setStorage] = useState<StorageStatus | null>(null)
   const [status, setStatus] = useState<Status | null>(null)
   const [pendingImport, setPendingImport] = useState<ParsedBackup | null>(null)
@@ -71,6 +74,7 @@ export function DataSection() {
       text: `Restored the backup from ${formatWhen(pendingImport.exportedAt)}.`,
     })
     setPendingImport(null)
+    importButton.current?.focus()
     refreshStorage()
   }
 
@@ -133,7 +137,7 @@ export function DataSection() {
           <Download />
           Export backup
         </Button>
-        <Button onClick={() => fileInput.current?.click()}>
+        <Button ref={importButton} onClick={() => fileInput.current?.click()}>
           <Upload />
           Import backup
         </Button>
@@ -149,43 +153,45 @@ export function DataSection() {
       </div>
 
       {pendingImport && (
-        <div className="flex flex-col gap-3 rounded-lg border border-line-strong p-4 text-sm">
-          <p>
-            Replace your current data with the backup from{' '}
-            <strong>{formatWhen(pendingImport.exportedAt)}</strong>? Anything not in the backup
-            stays as it is.
-          </p>
-          <div className="flex gap-2">
-            <Button variant="primary" size="sm" onClick={confirmImport}>
-              Replace data
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setPendingImport(null)}>
-              Cancel
-            </Button>
-          </div>
-        </div>
+        <InlineConfirm
+          className="rounded-lg border border-line-strong p-4"
+          tone="primary"
+          confirmLabel="Replace data"
+          returnFocus={importButton}
+          onConfirm={() => void confirmImport()}
+          onCancel={() => setPendingImport(null)}
+        >
+          Replace your current data with the backup from{' '}
+          <strong>{formatWhen(pendingImport.exportedAt)}</strong>? Anything not in the backup stays
+          as it is.
+        </InlineConfirm>
       )}
 
       <div className="flex flex-col gap-3 border-t border-line pt-4">
         {confirmingDelete ? (
-          <div className="flex flex-col gap-3 rounded-lg border border-accent/60 bg-accent-soft p-4 text-sm">
-            <p>
-              This permanently deletes your business details, settings, current draft, clients and
-              invoice history from this browser. It can’t be undone.
-            </p>
-            <div className="flex gap-2">
-              <Button variant="danger" size="sm" onClick={confirmDelete}>
+          <InlineConfirm
+            className="rounded-lg border border-accent/60 bg-accent-soft p-4"
+            confirmLabel={
+              <>
                 <Trash2 />
                 Delete everything
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => setConfirmingDelete(false)}>
-                Cancel
-              </Button>
-            </div>
-          </div>
+              </>
+            }
+            returnFocus={deleteButton}
+            onConfirm={() => void confirmDelete()}
+            onCancel={() => setConfirmingDelete(false)}
+          >
+            This permanently deletes your business details, settings, current draft, clients and
+            invoice history from this browser. It can’t be undone.
+          </InlineConfirm>
         ) : (
           <div>
-            <Button variant="danger" size="sm" onClick={() => setConfirmingDelete(true)}>
+            <Button
+              ref={deleteButton}
+              variant="danger"
+              size="sm"
+              onClick={() => setConfirmingDelete(true)}
+            >
               <Trash2 />
               Delete all data
             </Button>

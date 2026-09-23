@@ -1,23 +1,27 @@
 import { Eye, PenLine } from 'lucide-react'
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { flushSync } from 'react-dom'
+import { Card } from '../components/ui/Card'
 import { SegmentedControl } from '../components/ui/SegmentedControl'
-import { BusinessPanel } from '../features/business/BusinessPanel'
-import { ClientsPanel } from '../features/clients/ClientsPanel'
 import type { ExportSection } from '../domain/export'
 import { EditorPane } from '../features/editor/EditorPane'
 import { revealSection } from '../features/editor/revealSection'
-import { HistoryPanel } from '../features/history/HistoryPanel'
-import { OnboardingWizard } from '../features/onboarding/OnboardingWizard'
 import { PreviewPane } from '../features/preview/PreviewPane'
-import { SettingsPanel } from '../features/settings/SettingsPanel'
 import { useTheme } from '../hooks/useTheme'
 import { cn } from '../lib/cn'
 import { useProfileStore } from '../storage/stores'
+import {
+  BusinessPanel,
+  ClientsPanel,
+  HistoryPanel,
+  OnboardingWizard,
+  SettingsPanel,
+} from './lazyPanels'
 import type { PanelId } from './navigation'
 import { NavRail } from './NavRail'
 import { StorageIssueBanner } from './StorageIssueBanner'
 import { TopBar } from './TopBar'
+import { UpdatePrompt } from './UpdatePrompt'
 
 type MobileView = 'edit' | 'preview'
 
@@ -75,13 +79,15 @@ export function AppShell() {
         <StorageIssueBanner />
 
         {onInvoice && (
-          <SegmentedControl
-            label="Workspace view"
-            options={MOBILE_VIEW_OPTIONS}
-            value={mobileView}
-            onChange={setMobileView}
-            className="flex shrink-0 lg:hidden"
-          />
+          <nav aria-label="Edit or preview" className="flex shrink-0 lg:hidden">
+            <SegmentedControl
+              label="Workspace view"
+              options={MOBILE_VIEW_OPTIONS}
+              value={mobileView}
+              onChange={setMobileView}
+              className="flex flex-1"
+            />
+          </nav>
         )}
 
         <div className="flex min-h-0 flex-1 gap-3">
@@ -98,14 +104,18 @@ export function AppShell() {
                 className={cn(mobileView === 'preview' && 'max-lg:hidden')}
                 onEditProfile={() => setPanel('business')}
               />
-            ) : panel === 'settings' ? (
-              <SettingsPanel />
-            ) : panel === 'business' ? (
-              <BusinessPanel />
-            ) : panel === 'clients' ? (
-              <ClientsPanel onUseClient={openEditor} />
             ) : (
-              <HistoryPanel onOpenDraft={openEditor} />
+              <Suspense fallback={<PanelLoading />}>
+                {panel === 'settings' ? (
+                  <SettingsPanel />
+                ) : panel === 'business' ? (
+                  <BusinessPanel />
+                ) : panel === 'clients' ? (
+                  <ClientsPanel onUseClient={openEditor} />
+                ) : (
+                  <HistoryPanel onOpenDraft={openEditor} />
+                )}
+              </Suspense>
             )}
             <PreviewPane className={cn((!onInvoice || mobileView === 'edit') && 'max-lg:hidden')} />
           </main>
@@ -118,7 +128,21 @@ export function AppShell() {
           className="flex lg:hidden"
         />
       </div>
-      {!onboardingComplete && <OnboardingWizard />}
+      {!onboardingComplete && (
+        <Suspense fallback={null}>
+          <OnboardingWizard />
+        </Suspense>
+      )}
+      <UpdatePrompt />
     </>
+  )
+}
+
+/** Shown for the moment a panel takes to load the first time. */
+function PanelLoading() {
+  return (
+    <Card className="grid place-items-center p-8" aria-busy="true">
+      <p className="text-sm text-fg-subtle">Loading…</p>
+    </Card>
   )
 }

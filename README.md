@@ -6,7 +6,7 @@ Create professional A4 invoices, preview them live across multiple templates, ad
 
 **Live:** https://paperless-bay-zeta.vercel.app
 
-> **Status:** early development (Milestone 8 — PDF export and invoice history).
+> **Status:** feature-complete beta (Milestone 9 — accessibility, offline support and polish).
 
 ## Principles
 
@@ -24,6 +24,7 @@ Create professional A4 invoices, preview them live across multiple templates, ad
 | Data      | Zustand + Zod, localStorage and IndexedDB                     |
 | PDF       | @react-pdf/renderer in a Web Worker, previewed with pdf.js    |
 | QR codes  | qrcode, drawn as vector shapes in the PDF                     |
+| Offline   | vite-plugin-pwa (Workbox): installable, precached app shell   |
 
 ## How totals are calculated
 
@@ -61,6 +62,19 @@ IBANs are checked with the mod-97 checksum before they're saved. The code is lef
 - **History.** Every download saves a frozen copy, including the payment details and logo it was printed with, so an old invoice downloads again exactly as it was sent. Logos are stored once however many invoices use them.
 - **Tracking.** Mark invoices paid (with the date) or unpaid, see which are overdue, search and filter, duplicate one into a new draft, or delete it.
 
+## Works offline
+
+Paperless is an installable web app. After the first visit, a service worker keeps a copy of the whole app, including the PDF engine and fonts, so you can write, preview and download invoices with no connection. New versions never interrupt you mid-edit: a small prompt offers to reload when one is ready.
+
+## Accessibility
+
+- Checked with axe-core in both themes, on desktop and phone layouts, with no violations. Text meets WCAG AA contrast.
+- Everything works from the keyboard. Confirmations focus the safe choice, Escape backs out, and focus returns to the control you came from.
+- Status changes (downloads, errors, preview updates) are announced to screen readers.
+- Honors reduced-motion settings.
+
+If something breaks, an error screen keeps your data one click from a backup.
+
 ## Getting started
 
 Requires Node.js 24 (see `.nvmrc`).
@@ -94,7 +108,7 @@ npm run dev        # start the dev server at http://localhost:5173
 - [x] **M6** PDF templates & live preview
 - [x] **M7** QR payments
 - [x] **M8** Export & history
-- [ ] **M9** Polish, accessibility & PWA
+- [x] **M9** Polish, accessibility & PWA
 - [ ] **M10** Production release
 
 ## License

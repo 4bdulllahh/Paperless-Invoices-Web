@@ -7,11 +7,10 @@ import {
   LoaderCircle,
   X,
 } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { Button } from '../../components/ui/Button'
 import type { ExportSection } from '../../domain/export'
-import { useHydrated } from '../../hooks/useHydrated'
-import { useDraftStore, useHistoryStore, useLogoStore } from '../../storage/stores'
+import { useDraftStore } from '../../storage/stores'
 import { SECTION_LABELS } from '../editor/revealSection'
 import { useDownloadInvoice } from './useDownloadInvoice'
 
@@ -29,11 +28,10 @@ type DownloadButtonProps = {
  */
 export function DownloadButton({ onFixIssue }: DownloadButtonProps) {
   const hasDraft = useDraftStore((state) => state.invoice !== null)
-  const historyReady = useHydrated(useHistoryStore)
-  const logoReady = useHydrated(useLogoStore)
   const { state, download, dismiss } = useDownloadInvoice()
   const wrapper = useRef<HTMLDivElement>(null)
   const panel = useRef<HTMLDivElement>(null)
+  const button = useRef<HTMLButtonElement>(null)
   const working = state.phase === 'working'
   const open = state.phase === 'issues' || state.phase === 'done' || state.phase === 'error'
 
@@ -42,16 +40,29 @@ export function DownloadButton({ onFixIssue }: DownloadButtonProps) {
     if (state.phase === 'issues') panel.current?.focus()
   }, [state])
 
+  /**
+   * Close the note. Focus goes back to the button when asked, or when it was inside the note
+   * (it would otherwise be lost). A click elsewhere keeps focus where the user put it.
+   */
+  const close = useCallback(
+    (returnFocus = false) => {
+      const focusInside = panel.current?.contains(document.activeElement) ?? false
+      dismiss()
+      if (returnFocus || focusInside) button.current?.focus()
+    },
+    [dismiss],
+  )
+
   useEffect(() => {
     if (state.phase !== 'done') return
-    const timer = setTimeout(dismiss, DONE_NOTICE_MS)
+    const timer = setTimeout(close, DONE_NOTICE_MS)
     return () => clearTimeout(timer)
-  }, [state, dismiss])
+  }, [state, close])
 
   // Close on Escape or a click elsewhere.
   useEffect(() => {
     if (!open) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && dismiss()
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close(true)
     const onPointer = (e: PointerEvent) => {
       if (!wrapper.current?.contains(e.target as Node)) dismiss()
     }
@@ -61,13 +72,15 @@ export function DownloadButton({ onFixIssue }: DownloadButtonProps) {
       document.removeEventListener('keydown', onKey)
       document.removeEventListener('pointerdown', onPointer)
     }
-  }, [open, dismiss])
+  }, [open, close, dismiss])
 
   return (
     <div ref={wrapper} className="relative">
       <Button
+        ref={button}
         variant="primary"
-        disabled={!hasDraft || !historyReady || !logoReady}
+        // No need to wait for saved data to load here: downloading waits for it.
+        disabled={!hasDraft}
         aria-busy={working || undefined}
         aria-label={working ? 'Preparing PDF…' : 'Download PDF'}
         onClick={() => void download()}
@@ -119,7 +132,7 @@ export function DownloadButton({ onFixIssue }: DownloadButtonProps) {
               variant="ghost"
               className="-mt-1 -mr-1"
               aria-label="Close"
-              onClick={dismiss}
+              onClick={() => close(true)}
             >
               <X />
             </Button>
@@ -154,7 +167,7 @@ export function DownloadButton({ onFixIssue }: DownloadButtonProps) {
               className="self-start"
               onClick={() => {
                 useDraftStore.getState().startNewInvoice()
-                dismiss()
+                close(true)
               }}
             >
               <FilePlus2 />
@@ -162,7 +175,14 @@ export function DownloadButton({ onFixIssue }: DownloadButtonProps) {
             </Button>
           )}
           {state.phase === 'error' && (
-            <Button size="sm" className="self-start" onClick={() => void download()}>
+            <Button
+              size="sm"
+              className="self-start"
+              onClick={() => {
+                button.current?.focus()
+                void download()
+              }}
+            >
               Try again
             </Button>
           )}

@@ -71,12 +71,17 @@ describe('PreviewPane', () => {
     expect(lastProps().view.notes).toBe('Thank')
   })
 
-  it('says so when the preview fails, without losing anything', async () => {
+  it('says so when the preview fails, without losing anything, and can try again', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
-    renderPreview.mockRejectedValue(new Error('boom'))
+    renderPreview.mockRejectedValueOnce(new Error('boom')).mockResolvedValueOnce(pagesOf(1))
     render(<PreviewPane />)
-    expect(await screen.findByText(/The preview couldn’t be drawn/)).toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent(/The preview couldn’t be drawn/)
     expect(useDraftStore.getState().invoice).not.toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+
+    expect(await screen.findByRole('img', { name: /page 1 of 1/ })).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     consoleError.mockRestore()
   })
 

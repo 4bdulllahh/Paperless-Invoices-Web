@@ -94,6 +94,7 @@ describe('HistoryPanel', () => {
 
     const date = screen.getByLabelText('Date paid')
     expect(date).toHaveValue('2026-10-10')
+    expect(date).toHaveFocus()
     fireEvent.change(date, { target: { value: '' } }) // half-typed dates are ignored
     fireEvent.change(date, { target: { value: '2026-10-05' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
@@ -102,6 +103,7 @@ describe('HistoryPanel', () => {
     expect(entry).toMatchObject({ status: 'paid', paidAt: '2026-10-05' })
     expect(within(row('INV-2026-0001')).getByText('Paid')).toBeInTheDocument()
     expect(within(row('INV-2026-0001')).getByText(/Paid Oct 5, 2026/)).toBeInTheDocument()
+    expect(within(row('INV-2026-0001')).getByRole('button', { name: 'Mark unpaid' })).toHaveFocus()
 
     fireEvent.click(within(row('INV-2026-0001')).getByRole('button', { name: 'Mark unpaid' }))
     expect(within(row('INV-2026-0001')).getByText('Overdue')).toBeInTheDocument()
@@ -110,16 +112,28 @@ describe('HistoryPanel', () => {
   it('deletes only after confirming', () => {
     render(<HistoryPanel onOpenDraft={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: 'Delete INV-2026-0001' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    // The safe choice is focused, and Escape backs out to the button that asked.
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus()
+    fireEvent.keyDown(screen.getByRole('alertdialog'), { key: 'Escape' })
     expect(useHistoryStore.getState().entries).toHaveLength(2)
+    expect(screen.getByRole('button', { name: 'Delete INV-2026-0001' })).toHaveFocus()
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete INV-2026-0001' }))
-    const confirm = screen.getByRole('alertdialog', { name: 'Delete INV-2026-0001?' })
+    const confirm = screen.getByRole('alertdialog', { name: /Delete INV-2026-0001 from History/ })
     fireEvent.click(within(confirm).getByRole('button', { name: 'Delete' }))
 
     expect(useHistoryStore.getState().entries.map((e) => e.invoice.number)).toEqual([
       'INV-2026-0002',
     ])
+    expect(screen.getByRole('heading', { name: 'History' })).toHaveFocus()
+  })
+
+  it('cancels marking paid with Escape and returns focus', () => {
+    render(<HistoryPanel onOpenDraft={vi.fn()} />)
+    fireEvent.click(within(row('INV-2026-0001')).getByRole('button', { name: 'Mark paid' }))
+    fireEvent.keyDown(screen.getByLabelText('Date paid'), { key: 'Escape' })
+    expect(screen.queryByLabelText('Date paid')).not.toBeInTheDocument()
+    expect(within(row('INV-2026-0001')).getByRole('button', { name: 'Mark paid' })).toHaveFocus()
   })
 
   it('downloads an invoice again exactly as issued, without saving or numbering', async () => {

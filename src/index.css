@@ -38,7 +38,7 @@
   --fg-muted: #403d39;
   --fg-subtle: #6b665f;
   --accent: #eb5e28;
-  --accent-hover: #d9511d;
+  --accent-hover: #f0733f; /* lighter, so dark text keeps 4.5:1 contrast */
   --accent-fg: #252422;
   --accent-soft: #fbe3d6;
   --elev-1: 0 1px 2px rgb(37 36 34 / 0.05), 0 4px 16px rgb(37 36 34 / 0.05);
@@ -56,7 +56,7 @@
   --line-strong: #57534d;
   --fg: #fffcf2;
   --fg-muted: #ccc5b9;
-  --fg-subtle: #a39c91;
+  --fg-subtle: #a6a094;
   --accent: #eb5e28;
   --accent-hover: #f0733f;
   --accent-fg: #252422;

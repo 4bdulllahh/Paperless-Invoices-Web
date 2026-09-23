@@ -1,6 +1,7 @@
 import { LoaderCircle, TriangleAlert } from 'lucide-react'
 import { CraneMark } from '../../components/brand/CraneMark'
 import { Badge } from '../../components/ui/Badge'
+import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { SegmentedControl } from '../../components/ui/SegmentedControl'
 import type { TemplateId } from '../../domain/schema'
@@ -28,7 +29,7 @@ export function PreviewPane({ className }: { className?: string }) {
   const updateInvoice = useDraftStore((state) => state.updateInvoice)
   const setTemplate = (templateId: TemplateId) =>
     updateInvoice((invoice) => ({ ...invoice, templateId }))
-  const { pages, status } = useLivePdfPreview()
+  const { pages, status, retry } = useLivePdfPreview()
 
   return (
     <Card className={cn('flex min-h-0 flex-col overflow-hidden', className)}>
@@ -61,10 +62,16 @@ export function PreviewPane({ className }: { className?: string }) {
         className="[container-type:size] min-h-0 flex-1 overflow-y-auto overscroll-contain bg-surface-sunken p-4 sm:p-6"
       >
         {status === 'error' && (
-          <p className="mx-auto mb-4 flex max-w-sm items-center gap-2 rounded-md bg-accent-soft px-3 py-2 text-sm">
+          <div
+            role="alert"
+            className="mx-auto mb-4 flex max-w-md items-center gap-3 rounded-md bg-accent-soft px-3 py-2 text-sm"
+          >
             <TriangleAlert className="size-4 shrink-0 text-accent" aria-hidden="true" />
-            The preview couldn’t be drawn. Your invoice is still saved; try editing it again.
-          </p>
+            <p className="flex-1">The preview couldn’t be drawn. Your invoice is still saved.</p>
+            <Button size="sm" variant="ghost" className="-my-1 h-8 px-3" onClick={retry}>
+              Try again
+            </Button>
+          </div>
         )}
         <div className="flex flex-col items-center gap-4">
           {pages ? (
@@ -110,7 +117,9 @@ function SkeletonPage({ template }: { template: TemplateId }) {
         '@container aspect-[210/297] animate-pulse overflow-hidden rounded-sm bg-white text-ink shadow-elev-2 ring-1 ring-ink/5 dark:ring-cream/15',
       )}
     >
+      {/* A sketch of the page: decorative, the label says what it is. */}
       <div
+        aria-hidden="true"
         className={cn(
           'flex items-start justify-between p-[7cqw]',
           modern && 'bg-ink text-cream',
@@ -137,7 +146,7 @@ function SkeletonPage({ template }: { template: TemplateId }) {
         </div>
       </div>
 
-      <div className="flex flex-col gap-[6cqw] px-[7cqw] pt-[6cqw]">
+      <div aria-hidden="true" className="flex flex-col gap-[6cqw] px-[7cqw] pt-[6cqw]">
         <div className="grid grid-cols-2 gap-[6cqw]">
           {[0, 1].map((col) => (
             <div key={col} className="flex flex-col gap-[1.8cqw]">
