@@ -32,7 +32,7 @@ Paperless is a free invoice generator that runs entirely in the browser. It's a 
 | What        | Where                                                                     |
 | ----------- | ------------------------------------------------------------------------- |
 | Repo        | `C:\Users\Computer\Documents\GitHub\Paperless`, branch `main`             |
-| Remote      | https://github.com/4bdulllahh/Paperless-Web                               |
+| Remote      | https://github.com/4bdulllahh/Paperless-Invoices-Web                               |
 | Live site   | https://paperless-bay-zeta.vercel.app/                                    |
 | Hosting     | Vercel Hobby. Every push to `main` deploys automatically.                 |
 | CI          | GitHub Actions, `.github/workflows/ci.yml`. Runs on every push to `main`. |
@@ -429,7 +429,7 @@ Afterwards, stop it with `Get-NetTCPConnection -LocalPort 4173 | ForEach-Object 
    ```
 4. Wait for CI. The `gh` CLI isn't installed, so use the public API:
    ```bash
-   curl -s "https://api.github.com/repos/4bdulllahh/Paperless-Web/actions/runs?head_sha=$(git rev-parse HEAD)" | grep -m2 -E '"(status|conclusion)"'
+   curl -s "https://api.github.com/repos/4bdulllahh/Paperless-Invoices-Web/actions/runs?head_sha=$(git rev-parse HEAD)" | grep -m2 -E '"(status|conclusion)"'
    ```
 5. Wait for Vercel. The deploy is live when `curl -s https://paperless-bay-zeta.vercel.app/` contains the new `index-<hash>.js` name from `dist/assets`.
 6. Run `m11.mjs` and `m10csp.mjs` against the live URL.
