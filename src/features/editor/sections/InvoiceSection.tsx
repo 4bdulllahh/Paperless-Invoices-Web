@@ -1,16 +1,26 @@
 import { useMemo } from 'react'
 import { CheckboxField } from '../../../components/ui/Checkbox'
 import { SelectField, TextField } from '../../../components/ui/Field'
+import { SegmentedControl } from '../../../components/ui/SegmentedControl'
 import { addDays, daysBetween } from '../../../domain/dates'
-import { currencyOptions } from '../../../domain/options'
-import type { Invoice } from '../../../domain/schema'
+import { currencyOptions, paymentTermsOptions } from '../../../domain/options'
+import type { DueMode, Invoice } from '../../../domain/schema'
 import { validateDate } from '../validators'
 import type { InvoiceUpdater } from './types'
 
-/** Title, number, dates and currency. */
+const DUE_MODES = [
+  { value: 'date', label: 'Due date' },
+  { value: 'terms', label: 'Payment terms' },
+] as const satisfies readonly { value: DueMode; label: string }[]
+
+/** Where a client's purchase order is a "Local Purchase Order". */
+const LPO_COUNTRIES = new Set(['AE', 'SA', 'BH', 'OM', 'QA', 'KW'])
+
+/** Title, number, dates, terms, purchase order and currency. */
 export function InvoiceSection({ invoice, update }: { invoice: Invoice; update: InvoiceUpdater }) {
   const currencies = useMemo(() => currencyOptions(invoice.locale), [invoice.locale])
-  const dueBeforeIssue = invoice.dueDate < invoice.issueDate
+  const dueBeforeIssue = invoice.dueMode === 'date' && invoice.dueDate < invoice.issueDate
+  const terms = invoice.dueMode === 'terms'
 
   return (
     <div className="flex flex-col gap-3">
@@ -46,6 +56,59 @@ export function InvoiceSection({ invoice, update }: { invoice: Invoice; update: 
           }}
         />
         <TextField
+          label="Date of supply"
+          optional
+          type="date"
+          hint="Only if the goods or services were supplied on another day."
+          value={invoice.supplyDate}
+          onChange={(e) => {
+            const supplyDate = e.target.value
+            if (!supplyDate || !validateDate(supplyDate)) update((inv) => ({ ...inv, supplyDate }))
+          }}
+        />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <span className="text-sm font-medium text-fg-muted">When payment is due</span>
+        <SegmentedControl
+          label="When payment is due"
+          options={DUE_MODES}
+          value={invoice.dueMode}
+          onChange={(dueMode) =>
+            update((inv) => ({
+              ...inv,
+              dueMode,
+              // Terms set the due date, so History still knows when it's overdue.
+              dueDate:
+                dueMode === 'terms' ? addDays(inv.issueDate, inv.paymentTermsDays) : inv.dueDate,
+            }))
+          }
+          className="h-11 items-center self-start"
+          size="sm"
+        />
+      </div>
+      {terms ? (
+        <SelectField
+          label="Payment terms"
+          hint="Printed instead of a due date, e.g. “Net 30 days”."
+          value={String(invoice.paymentTermsDays)}
+          onChange={(e) => {
+            const paymentTermsDays = Number(e.target.value)
+            update((inv) => ({
+              ...inv,
+              paymentTermsDays,
+              dueDate: addDays(inv.issueDate, paymentTermsDays),
+            }))
+          }}
+        >
+          {paymentTermsOptions(invoice.paymentTermsDays).map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </SelectField>
+      ) : (
+        <TextField
           label="Due date"
           type="date"
           min={invoice.issueDate}
@@ -56,7 +119,18 @@ export function InvoiceSection({ invoice, update }: { invoice: Invoice; update: 
             if (!validateDate(dueDate)) update((inv) => ({ ...inv, dueDate }))
           }}
         />
-      </div>
+      )}
+
+      <TextField
+        label={LPO_COUNTRIES.has(invoice.country) ? 'LPO number' : 'Purchase order (PO) number'}
+        optional
+        spellCheck={false}
+        placeholder="e.g. 260400881"
+        hint="The client’s order reference, printed next to the invoice number."
+        value={invoice.poNumber}
+        onChange={(e) => update((inv) => ({ ...inv, poNumber: e.target.value }))}
+      />
+
       <SelectField
         label="Currency"
         value={invoice.currency}

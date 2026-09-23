@@ -33,9 +33,12 @@ function fillWithData() {
     taxId: '',
   })
   const logo = { dataUrl: 'data:image/png;base64,AAAA', width: 2, height: 1 }
-  useHistoryStore
-    .getState()
-    .recordInvoice(createSampleInvoice(), { payment: emptyPaymentDetails(), logo })
+  useHistoryStore.getState().recordInvoice(createSampleInvoice(), {
+    payment: emptyPaymentDetails(),
+    logo,
+    signature: null,
+    stamp: null,
+  })
   useLogoStore.getState().setLogo(logo)
 }
 
@@ -48,7 +51,7 @@ const snapshot = () =>
   )
 
 const text = (backup: BackupFile) => JSON.stringify(backup)
-const assets = { payment: emptyPaymentDetails(), logo: null }
+const assets = { payment: emptyPaymentDetails(), logo: null, signature: null, stamp: null }
 
 beforeEach(() => clearAllData())
 

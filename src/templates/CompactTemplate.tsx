@@ -12,7 +12,14 @@ import {
   SAND,
   type TemplateProps,
 } from './layout'
-import { LogoImage, PageFooter, PartyBlock, PaymentAndNotes, TotalInWords } from './shared'
+import {
+  LogoImage,
+  PageFooter,
+  PartyBlock,
+  PaymentAndNotes,
+  SignatureBlock,
+  TotalInWords,
+} from './shared'
 
 const PAD = 32
 
@@ -118,8 +125,8 @@ const s = StyleSheet.create({
   },
 })
 
-export function CompactTemplate({ view, logo, payment, qr }: TemplateProps) {
-  const columns = itemColumns(view)
+export function CompactTemplate({ view, logo, payment, qr, signature, stamp }: TemplateProps) {
+  const columns = itemColumns(view, 517)
   const balance = view.totals.find((row) => row.kind === 'balance')!
   const summary = view.totals.filter((row) => row.kind !== 'balance')
 
@@ -149,8 +156,7 @@ export function CompactTemplate({ view, logo, payment, qr }: TemplateProps) {
         <View style={s.factsBox}>
           {[
             ['Number', view.number],
-            ['Issued', view.issueDate],
-            ['Due', view.dueDate],
+            ...view.facts.map((fact) => [fact.label, fact.value]),
             [balance.label, view.balanceDue],
           ].map(([label, value]) => (
             <View key={label} style={s.factRow}>
@@ -176,10 +182,7 @@ export function CompactTemplate({ view, logo, payment, qr }: TemplateProps) {
             wrap={false}
           >
             {columns.map((column) => (
-              <Text
-                key={column.key}
-                style={[cellStyle(column), column.key === 'amount' ? s.amount : {}]}
-              >
+              <Text key={column.key} style={[cellStyle(column), column.strong ? s.amount : {}]}>
                 {cellText(line, column)}
               </Text>
             ))}
@@ -189,6 +192,11 @@ export function CompactTemplate({ view, logo, payment, qr }: TemplateProps) {
 
       <View style={s.bottom} wrap={false}>
         <View style={s.notes}>
+          <TotalInWords
+            text={view.totalInWords}
+            style={{ ...s.words, marginTop: 0, marginBottom: 12 }}
+            labelStyle={s.wordsLabel}
+          />
           <PaymentAndNotes
             payment={payment}
             qr={qr}
@@ -213,10 +221,14 @@ export function CompactTemplate({ view, logo, payment, qr }: TemplateProps) {
             <Text style={s.balanceText}>{balance.label}</Text>
             <Text style={s.balanceText}>{balance.value}</Text>
           </View>
+          <SignatureBlock
+            signed={view.signed}
+            signature={signature}
+            stamp={stamp}
+            name={view.from.name}
+          />
         </View>
       </View>
-
-      <TotalInWords text={view.totalInWords} style={s.words} labelStyle={s.wordsLabel} />
 
       <PageFooter number={view.number} style={s.footer} />
     </Page>

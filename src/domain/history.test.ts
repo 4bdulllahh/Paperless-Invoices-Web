@@ -69,22 +69,45 @@ describe('countByFilter', () => {
 
 describe('issuedAssets', () => {
   const logo = { dataUrl: 'data:image/png;base64,AAAA', width: 2, height: 1 }
-  const current = { payment: { ...emptyPaymentDetails(), instructions: 'New bank' }, logo }
+  const current = {
+    payment: { ...emptyPaymentDetails(), instructions: 'New bank' },
+    logo,
+    signature: null,
+    stamp: null,
+  }
+  const sign = { dataUrl: 'data:image/png;base64,BBBB', width: 3, height: 1 }
   const issuedPayment = { ...emptyPaymentDetails(), instructions: 'Old bank' }
 
   it('uses what the invoice was issued with', () => {
-    const withLogo = { ...northwind, issuedWith: { payment: issuedPayment, logoId: 'L1' } }
-    expect(issuedAssets(withLogo, { L1: logo }, current)).toEqual({ payment: issuedPayment, logo })
+    const images = { signatureId: 'S1', stampId: null }
+    const withLogo = {
+      ...northwind,
+      issuedWith: { payment: issuedPayment, logoId: 'L1', ...images },
+    }
+    expect(issuedAssets(withLogo, { L1: logo, S1: sign }, current)).toEqual({
+      payment: issuedPayment,
+      logo,
+      signature: sign,
+      stamp: null,
+    })
 
-    const noLogo = { ...northwind, issuedWith: { payment: issuedPayment, logoId: null } }
+    const noLogo = {
+      ...northwind,
+      issuedWith: { payment: issuedPayment, logoId: null, signatureId: null, stampId: null },
+    }
     expect(issuedAssets(noLogo, { L1: logo }, current)).toEqual({
       payment: issuedPayment,
       logo: null,
+      signature: null,
+      stamp: null,
     })
   })
 
   it('prints without a logo that has gone missing', () => {
-    const lost = { ...northwind, issuedWith: { payment: issuedPayment, logoId: 'gone' } }
+    const lost = {
+      ...northwind,
+      issuedWith: { payment: issuedPayment, logoId: 'gone', signatureId: null, stampId: null },
+    }
     expect(issuedAssets(lost, {}, current).logo).toBeNull()
   })
 

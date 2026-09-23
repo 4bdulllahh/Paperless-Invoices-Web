@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearAllData } from '../../storage/backup'
 import { useDraftStore, useProfileStore, useSettingsStore } from '../../storage/stores'
 import { OnboardingWizard } from './OnboardingWizard'
@@ -9,10 +9,26 @@ const { requestPersistentStorage } = vi.hoisted(() => ({
 }))
 vi.mock('../../storage/persistence', () => ({ requestPersistentStorage }))
 
+const realOptions = Intl.DateTimeFormat.prototype.resolvedOptions
+
+/** Where the device says it is: the time zone first, then the browser's languages. */
+function deviceIn(timeZone: string, languages: string[] = []) {
+  vi.restoreAllMocks()
+  vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockImplementation(function (
+    this: Intl.DateTimeFormat,
+  ) {
+    return { ...realOptions.call(this), timeZone }
+  })
+  vi.spyOn(Object.getPrototypeOf(navigator), 'languages', 'get').mockReturnValue(languages)
+}
+
 beforeEach(async () => {
   requestPersistentStorage.mockClear()
   await clearAllData()
+  deviceIn('Etc/UTC')
 })
+
+afterEach(() => vi.restoreAllMocks())
 
 const next = () => fireEvent.click(screen.getByRole('button', { name: /Continue|Finish setup/ }))
 const stepHeading = () => screen.getByRole('heading', { level: 2 })
@@ -40,9 +56,9 @@ describe('OnboardingWizard', () => {
     chooseCountry('AE')
 
     expect(screen.getByText(/Set up for United Arab Emirates/).closest('p')).toHaveTextContent(
-      'AED · VAT 5% · tax number shown as “TRN” · titled “Tax invoice” · total in words',
+      'AED · VAT 5% · tax number shown as “TRN” · titled “Tax Invoice” · VAT shown on every line · total in words',
     )
-    expect(screen.getByText(/must show their TRN/)).toBeInTheDocument()
+    expect(screen.getByText(/must show your TRN/)).toBeInTheDocument()
     expect(useSettingsStore.getState()).toMatchObject({
       country: 'AE',
       currency: 'AED',
@@ -50,9 +66,25 @@ describe('OnboardingWizard', () => {
       taxLabel: 'VAT',
       defaultTaxRate: '5',
       taxIdLabel: 'TRN',
-      documentTitle: 'Tax invoice',
+      documentTitle: 'Tax Invoice',
       amountInWords: true,
+      showLineTax: true,
+      signInvoices: true,
     })
+  })
+
+  it('starts from the country the device is in', () => {
+    deviceIn('Asia/Dubai', ['en-US'])
+    render(<OnboardingWizard />)
+    expect(screen.getByLabelText('Country your business is in')).toHaveValue('AE')
+    expect(useSettingsStore.getState()).toMatchObject({ currency: 'AED', taxIdLabel: 'TRN' })
+  })
+
+  it('keeps a country already chosen', () => {
+    useSettingsStore.getState().updateSettings({ country: 'DE' })
+    deviceIn('Asia/Dubai')
+    render(<OnboardingWizard />)
+    expect(screen.getByLabelText('Country your business is in')).toHaveValue('DE')
   })
 
   it('asks for a business name before moving on', () => {
@@ -84,14 +116,19 @@ describe('OnboardingWizard', () => {
     expect(stepHeading()).toHaveTextContent('Getting paid')
 
     fireEvent.click(screen.getByRole('checkbox', { name: 'Bank transfer' }))
-    fireEvent.change(screen.getByLabelText(/Payment instructions/), {
-      target: { value: 'IBAN DE00 0000' },
+    fireEvent.change(screen.getByLabelText(/Bank name/), { target: { value: 'Example Bank' } })
+    fireEvent.change(screen.getByLabelText(/payment instructions/), {
+      target: { value: 'Quote the invoice number' },
     })
     next()
 
     expect(useProfileStore.getState()).toMatchObject({
       onboardingComplete: true,
-      payment: { instructions: 'IBAN DE00 0000', methods: ['bank'] },
+      payment: {
+        bankName: 'Example Bank',
+        instructions: 'Quote the invoice number',
+        methods: ['bank'],
+      },
     })
     expect(useDraftStore.getState().invoice).toMatchObject({
       currency: 'EUR',

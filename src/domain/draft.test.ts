@@ -9,7 +9,9 @@ import {
   sameParty,
 } from './draft'
 import type { Settings } from './records'
-import { settingsSchema } from './records'
+import { emptyPaymentDetails, settingsSchema } from './records'
+
+const emptyPaymentForTest = emptyPaymentDetails()
 import { createSampleInvoice } from './sample'
 import { invoiceSchema, type Invoice } from './schema'
 
@@ -24,9 +26,12 @@ const settings: Settings = {
   nextSequence: 7,
   templateId: 'classic',
   country: 'GB',
-  documentTitle: 'Tax invoice',
+  documentTitle: 'Tax Invoice',
   taxIdLabel: 'VAT reg. no.',
   amountInWords: true,
+  dueMode: 'terms',
+  showLineTax: true,
+  signInvoices: true,
 }
 
 describe('createInvoiceDraft', () => {
@@ -47,11 +52,20 @@ describe('createInvoiceDraft', () => {
       dueDate: '2026-10-23',
       currency: 'GBP',
       locale: 'en-GB',
-      taxMode: 'inclusive',
+      // Prices are always entered before tax now, whatever an older setting said.
+      taxMode: 'exclusive',
       taxLabel: 'VAT',
       templateId: 'classic',
       from: business,
       to: emptyParty(),
+      country: 'GB',
+      dueMode: 'terms',
+      paymentTermsDays: 30,
+      showLineTax: true,
+      signed: true,
+      payment: null,
+      poNumber: '',
+      supplyDate: '',
     })
     expect(draft.items).toEqual([createLineItem('line', '20')])
   })
@@ -75,6 +89,8 @@ describe('createLineItem', () => {
       unitPrice: '',
       taxRate: '',
       discount: { type: 'none', value: '' },
+      unit: '',
+      code: '',
     })
   })
 })
@@ -142,6 +158,23 @@ describe('duplicateInvoice', () => {
     )
   })
 
+  it('starts without the original’s purchase order, supply date or own payment details', () => {
+    const special = duplicateInvoice({
+      source: {
+        ...source,
+        poNumber: 'PO-1',
+        supplyDate: '2026-09-20',
+        payment: { ...emptyPaymentForTest, bankName: 'Other Bank' },
+      },
+      id: 'copy-2',
+      newLineId: () => 'line',
+      today: '2026-11-02',
+      settings,
+      business,
+    })
+    expect(special).toMatchObject({ poNumber: '', supplyDate: '', payment: null })
+  })
+
   it('takes a new id and number, today’s date, the current sender, and nothing paid', () => {
     expect(copy).toMatchObject({
       id: 'copy',
@@ -188,7 +221,7 @@ describe('followDefaults', () => {
 
   it('copies the invoice conventions into new drafts', () => {
     expect(draft).toMatchObject({
-      title: 'Tax invoice',
+      title: 'Tax Invoice',
       taxIdLabel: 'VAT reg. no.',
       amountInWords: true,
     })
@@ -209,12 +242,20 @@ describe('followDefaults', () => {
       numberPattern: 'A-{####}',
       nextSequence: 9,
       defaultTaxRate: '23',
+      country: 'IE',
+      dueMode: 'date' as const,
+      showLineTax: false,
+      signInvoices: false,
     }
     expect(followDefaults(draft, settings, after)).toMatchObject({
       currency: 'EUR',
       locale: 'en-IE',
-      taxMode: 'exclusive',
       taxLabel: 'Sales tax',
+      country: 'IE',
+      dueMode: 'date',
+      paymentTermsDays: 14,
+      showLineTax: false,
+      signed: false,
       templateId: 'bold',
       title: 'Invoice',
       taxIdLabel: 'VAT no.',

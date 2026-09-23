@@ -1,6 +1,7 @@
 import { Check, UserPlus } from 'lucide-react'
 import { Button } from '../../../components/ui/Button'
 import { partyOf, saveClientState } from '../../../domain/clients'
+import { taxIdIssue, taxIdRules } from '../../../domain/compliance'
 import type { Invoice, Party } from '../../../domain/schema'
 import { useHydrated } from '../../../hooks/useHydrated'
 import { useClientsStore } from '../../../storage/stores'
@@ -23,6 +24,11 @@ export function BillToSection({ invoice, update }: { invoice: Invoice; update: I
         party={invoice.to}
         onChange={change}
         namePlaceholder="Northwind Ltd"
+        taxId={{
+          label: invoice.taxIdLabel || 'Tax ID',
+          example: taxIdRules(invoice.country).example,
+          issue: taxIdIssue(invoice.country, invoice.to.taxId, invoice.taxIdLabel),
+        }}
         nameField={
           <ClientCombobox
             value={invoice.to.name}

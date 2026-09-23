@@ -12,7 +12,14 @@ import {
   OLIVE,
   type TemplateProps,
 } from './layout'
-import { LogoImage, PageFooter, PartyBlock, PaymentAndNotes, TotalInWords } from './shared'
+import {
+  LogoImage,
+  PageFooter,
+  PartyBlock,
+  PaymentAndNotes,
+  SignatureBlock,
+  TotalInWords,
+} from './shared'
 
 const PAD = 44
 
@@ -121,8 +128,8 @@ const s = StyleSheet.create({
   },
 })
 
-export function BoldTemplate({ view, logo, payment, qr }: TemplateProps) {
-  const columns = itemColumns(view)
+export function BoldTemplate({ view, logo, payment, qr, signature, stamp }: TemplateProps) {
+  const columns = itemColumns(view, 487)
   const balance = view.totals.find((row) => row.kind === 'balance')!
   const summary = view.totals.filter((row) => row.kind !== 'balance')
 
@@ -138,16 +145,14 @@ export function BoldTemplate({ view, logo, payment, qr }: TemplateProps) {
           )}
         </View>
         <View style={s.headerFacts}>
-          {[
-            ['Number', view.number],
-            ['Issued', view.issueDate],
-            ['Due', view.dueDate],
-          ].map(([label, value]) => (
-            <View key={label}>
-              <Text style={s.factLabel}>{label}</Text>
-              <Text style={s.factValue}>{value}</Text>
-            </View>
-          ))}
+          {[['Number', view.number], ...view.facts.map((fact) => [fact.label, fact.value])].map(
+            ([label, value]) => (
+              <View key={label}>
+                <Text style={s.factLabel}>{label}</Text>
+                <Text style={s.factValue}>{value}</Text>
+              </View>
+            ),
+          )}
         </View>
       </View>
 
@@ -177,10 +182,7 @@ export function BoldTemplate({ view, logo, payment, qr }: TemplateProps) {
         {view.lines.map((line) => (
           <View key={line.id} style={s.row} wrap={false}>
             {columns.map((column) => (
-              <Text
-                key={column.key}
-                style={[cellStyle(column), column.key === 'amount' ? s.amount : {}]}
-              >
+              <Text key={column.key} style={[cellStyle(column), column.strong ? s.amount : {}]}>
                 {cellText(line, column)}
               </Text>
             ))}
@@ -190,6 +192,11 @@ export function BoldTemplate({ view, logo, payment, qr }: TemplateProps) {
 
       <View style={s.bottom} wrap={false}>
         <View style={s.notes}>
+          <TotalInWords
+            text={view.totalInWords}
+            style={{ ...s.words, marginTop: 0, marginBottom: 12 }}
+            labelStyle={s.wordsLabel}
+          />
           <PaymentAndNotes
             payment={payment}
             qr={qr}
@@ -200,24 +207,30 @@ export function BoldTemplate({ view, logo, payment, qr }: TemplateProps) {
             linkStyle={s.link}
           />
         </View>
-        <View style={s.totals}>
-          {summary.map((row) => (
-            <View
-              key={`${row.kind}-${row.label}`}
-              style={row.kind === 'total' ? s.grandTotal : s.totalRow}
-            >
-              <Text style={row.kind === 'total' ? {} : s.totalLabel}>{row.label}</Text>
-              <Text>{row.value}</Text>
+        <View>
+          <View style={s.totals}>
+            {summary.map((row) => (
+              <View
+                key={`${row.kind}-${row.label}`}
+                style={row.kind === 'total' ? s.grandTotal : s.totalRow}
+              >
+                <Text style={row.kind === 'total' ? {} : s.totalLabel}>{row.label}</Text>
+                <Text>{row.value}</Text>
+              </View>
+            ))}
+            <View style={s.balance}>
+              <Text style={s.balanceText}>{balance.label}</Text>
+              <Text style={s.balanceText}>{balance.value}</Text>
             </View>
-          ))}
-          <View style={s.balance}>
-            <Text style={s.balanceText}>{balance.label}</Text>
-            <Text style={s.balanceText}>{balance.value}</Text>
           </View>
+          <SignatureBlock
+            signed={view.signed}
+            signature={signature}
+            stamp={stamp}
+            name={view.from.name}
+          />
         </View>
       </View>
-
-      <TotalInWords text={view.totalInWords} style={s.words} labelStyle={s.wordsLabel} />
 
       <PageFooter number={view.number} style={s.footer} />
     </Page>

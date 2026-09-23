@@ -32,9 +32,21 @@ const logo: Logo = {
   height: 2,
 }
 
-async function render(invoice: Invoice, name: string, paymentDetails = payment) {
+async function render(
+  invoice: Invoice,
+  name: string,
+  paymentDetails = payment,
+  images: { signature?: Logo; stamp?: Logo } = {},
+) {
   const buffer = await renderToBuffer(
-    <InvoiceDocument {...buildTemplateProps(invoice, logo, paymentDetails)} />,
+    <InvoiceDocument
+      {...buildTemplateProps(invoice, {
+        payment: paymentDetails,
+        logo,
+        signature: images.signature ?? null,
+        stamp: images.stamp ?? null,
+      })}
+    />,
   )
   if (OUT) {
     mkdirSync(OUT, { recursive: true })
@@ -72,8 +84,62 @@ const longInvoice = (templateId: TemplateId) =>
       unitPrice: '100',
       taxRate: i % 2 ? '8.875' : '20',
       discount: { type: 'none' as const, value: '' },
+      unit: '',
+      code: '',
     })),
   })
+
+/** Modelled on a real UAE tax invoice: VAT on every line, an LPO, terms, signed and stamped. */
+const uaeInvoice = (templateId: TemplateId, lineCount = 4): Invoice => {
+  const lines = [
+    ['Mens Contrast Round Neck T-Shirts S/S with Embroidery (Made in UAE) Charcoal', '54', '17'],
+    ['Mens Contrast Round Neck T-Shirts S/S with Embroidery (Extra)', '32', '17'],
+    ['Mens Contrast Cargo Pants with Side Elastic & Reflective Tapes', '68', '37'],
+    ['Mens Contrast Polo Shirts S/S with Embroidery (Made in UAE) Yellow', '6', '26'],
+  ]
+  const base = createSampleInvoice()
+  return createSampleInvoice({
+    templateId,
+    country: 'AE',
+    currency: 'AED',
+    locale: 'en-AE',
+    title: 'Tax Invoice',
+    taxLabel: 'VAT',
+    taxIdLabel: 'TRN',
+    amountInWords: true,
+    showLineTax: true,
+    signed: true,
+    poNumber: '260400881',
+    dueMode: 'terms',
+    paymentTermsDays: 30,
+    discount: { type: 'none', value: '' },
+    amountPaid: '',
+    from: { ...base.from, taxId: '100218874400003' },
+    to: { ...base.to, name: 'Arabian Packaging Co. LLC', taxId: '100268534300003' },
+    items: Array.from({ length: lineCount }, (_, i) => {
+      const [description, quantity, unitPrice] = lines[i % lines.length]
+      return {
+        id: `line-${i}`,
+        description,
+        quantity,
+        unitPrice,
+        taxRate: '5',
+        discount: { type: 'none' as const, value: '' },
+        unit: 'Pcs',
+        code: '',
+      }
+    }),
+  })
+}
+
+const uaeBank: PaymentDetails = {
+  ...emptyPaymentDetails(),
+  methods: ['bank', 'cheque'],
+  bankName: 'Emirates NBD',
+  accountName: 'Masco International FZC',
+  accountNumber: '1012345678901',
+  iban: 'AE07 0331 2345 6789 0123 456',
+}
 
 beforeAll(() => registerPdfFonts(resolve('public/fonts')))
 
@@ -160,7 +226,7 @@ describe.each(TEMPLATE_IDS)('%s template', (templateId) => {
   it('prints the title, tax number label, payment methods and amount in words, on one page', async () => {
     const invoice = createSampleInvoice({
       templateId,
-      title: 'Tax invoice',
+      title: 'Tax Invoice',
       taxIdLabel: 'TRN',
       amountInWords: true,
       currency: 'AED',
@@ -173,7 +239,7 @@ describe.each(TEMPLATE_IDS)('%s template', (templateId) => {
     })
 
     expect(pages).toHaveLength(1)
-    expectPrinted(text, 'Tax invoice')
+    expectPrinted(text, 'Tax Invoice')
     expect(text).toContain('TRN: 100123456700003')
     expect(text).toContain('Accepted: Bank transfer · Card · Cash · Cheque')
     expect(text).toContain('Cheques payable to Acme Studio')
@@ -181,7 +247,53 @@ describe.each(TEMPLATE_IDS)('%s template', (templateId) => {
       text,
       'Amount in words: Four thousand two hundred forty-seven dirhams and seventy-six fils only',
     )
-    expect(info.Title).toBe('Tax invoice INV-2026-0042')
+    expect(info.Title).toBe('Tax Invoice INV-2026-0042')
+  })
+
+  it('prints a UAE tax invoice with VAT on every line, signed and stamped, on one page', async () => {
+    const { pages, text } = await render(uaeInvoice(templateId), `${templateId}-uae`, uaeBank, {
+      signature: logo,
+      stamp: logo,
+    })
+
+    expect(pages).toHaveLength(1)
+    expectPrinted(text, 'Tax Invoice')
+    for (const expected of [
+      'TRN: 100218874400003',
+      'TRN: 100268534300003',
+      '260400881',
+      'Net 30 days',
+      // 54 × 17.00 = 918.00, VAT 45.90, with VAT 963.90
+      '918.00',
+      '45.90',
+      '963.90',
+      // 68 × 37.00 = 2,516.00, VAT 125.80, with VAT 2,641.80
+      '2,641.80',
+    ]) {
+      expect(text).toContain(expected)
+    }
+    for (const expected of [
+      'Bank: Emirates NBD',
+      'Account name: Masco International FZC',
+      'IBAN: AE07 0331 2345 6789 0123 456',
+      'LPO no.',
+      'Payment terms',
+      'Pcs',
+      'Total before VAT',
+      'Grand total',
+      'Authorised signature',
+      'For Acme Studio',
+    ]) {
+      expectPrinted(text, expected)
+    }
+  })
+
+  it('keeps every line of a long UAE tax invoice', async () => {
+    const { pages, text } = await render(uaeInvoice(templateId, 40), `${templateId}-uae-long`)
+    expect(pages.length).toBeGreaterThanOrEqual(2)
+    expect(text.match(/963\.90/g)).toHaveLength(10)
+    expectPrinted(text, 'Grand total')
+    expectPrinted(text, 'Authorised signature')
   })
 
   it('leaves the QR code off when there’s nothing to pay', async () => {

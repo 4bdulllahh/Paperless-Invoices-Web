@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { checkLogoFile, fitWithin, LogoError, MAX_LOGO_FILE_BYTES, outputTypeFor } from './logo'
+import {
+  checkLogoFile,
+  clearWhite,
+  fitWithin,
+  LogoError,
+  MAX_LOGO_FILE_BYTES,
+  outputTypeFor,
+  visibleBounds,
+} from './logo'
 
 describe('fitWithin', () => {
   it.each`
@@ -17,18 +25,27 @@ describe('fitWithin', () => {
 describe('checkLogoFile', () => {
   const file = (type: string, size = 1000) => new File([new Uint8Array(size)], 'logo', { type })
 
-  it.each(['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'])('accepts %s', (type) => {
+  // Android pickers can hand over cloud photos with no type, or a generic one: those are tried.
+  it.each([
+    'image/png',
+    'image/jpeg',
+    'image/webp',
+    'image/svg+xml',
+    'image/heic',
+    '',
+    'application/octet-stream',
+  ])('accepts "%s"', (type) => {
     expect(() => checkLogoFile(file(type))).not.toThrow()
   })
 
-  it('rejects other file types with a helpful message', () => {
+  it('rejects files that aren’t images with a helpful message', () => {
     expect(() => checkLogoFile(file('application/pdf'))).toThrow(
-      new LogoError('Use a PNG, JPG, WebP or SVG image.'),
+      new LogoError('Choose an image, e.g. a PNG or JPG.'),
     )
   })
 
   it('rejects very large files', () => {
-    expect(() => checkLogoFile(file('image/png', MAX_LOGO_FILE_BYTES + 1))).toThrow(/over 10 MB/)
+    expect(() => checkLogoFile(file('image/png', MAX_LOGO_FILE_BYTES + 1))).toThrow(/over 25 MB/)
   })
 })
 
@@ -38,5 +55,37 @@ describe('outputTypeFor', () => {
     expect(outputTypeFor('image/png')).toBe('image/png')
     expect(outputTypeFor('image/webp')).toBe('image/png')
     expect(outputTypeFor('image/svg+xml')).toBe('image/png')
+  })
+})
+
+describe('clearWhite', () => {
+  it('makes paper see-through and fades light greys, leaving ink alone', () => {
+    const pixels = new Uint8ClampedArray([
+      255,
+      255,
+      255,
+      255, // paper
+      219,
+      230,
+      240,
+      255, // light grey: half faded
+      20,
+      30,
+      90,
+      255, // blue ink
+    ])
+    clearWhite(pixels)
+    expect([pixels[3], pixels[7], pixels[11]]).toEqual([0, 128, 255])
+  })
+})
+
+describe('visibleBounds', () => {
+  it('finds the box around visible pixels', () => {
+    // 3 × 2 image with one visible pixel at (2, 1).
+    const pixels = new Uint8ClampedArray(3 * 2 * 4)
+    expect(visibleBounds(pixels, 3, 2)).toBeNull()
+    pixels[(1 * 3 + 2) * 4 + 3] = 255
+    pixels[1 * 4 + 3] = 10
+    expect(visibleBounds(pixels, 3, 2)).toEqual({ x: 1, y: 0, width: 2, height: 2 })
   })
 })

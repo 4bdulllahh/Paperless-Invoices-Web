@@ -58,6 +58,9 @@ describe('profile store', () => {
       iban: 'DE89 3704 0044 0532 0130 00',
       bic: '',
       methods: [],
+      bankName: '',
+      accountName: '',
+      accountNumber: '',
     })
   })
 
@@ -116,6 +119,9 @@ describe('profile upgrades', () => {
       iban: '',
       bic: '',
       methods: [],
+      bankName: '',
+      accountName: '',
+      accountNumber: '',
     })
   })
 })
@@ -127,6 +133,16 @@ describe('logo store', () => {
     expect(useLogoStore.getState().logo).toEqual(logo)
     useLogoStore.getState().removeLogo()
     expect(useLogoStore.getState().logo).toBeNull()
+  })
+
+  it('keeps a signature and stamp alongside the logo', () => {
+    const image = { dataUrl: 'data:image/png;base64,SSSS', width: 300, height: 100 }
+    const { setImage } = useLogoStore.getState()
+    setImage('signature', image)
+    setImage('stamp', { ...image, width: 200 })
+    expect(useLogoStore.getState()).toMatchObject({ signature: image, stamp: { width: 200 } })
+    setImage('signature', null)
+    expect(useLogoStore.getState().signature).toBeNull()
   })
 })
 
@@ -223,9 +239,12 @@ describe('settings follow into the draft', () => {
 
   it('leaves a downloaded invoice as it was sent', () => {
     const invoice = useDraftStore.getState().startNewInvoice('2026-09-23')
-    useHistoryStore
-      .getState()
-      .recordInvoice(invoice, { payment: emptyPaymentDetails(), logo: null })
+    useHistoryStore.getState().recordInvoice(invoice, {
+      payment: emptyPaymentDetails(),
+      logo: null,
+      signature: null,
+      stamp: null,
+    })
 
     useSettingsStore.getState().updateSettings({ currency: 'EUR' })
 
@@ -265,7 +284,7 @@ describe('clients store', () => {
 })
 
 describe('history store', () => {
-  const assets = { payment: emptyPaymentDetails(), logo: null }
+  const assets = { payment: emptyPaymentDetails(), logo: null, signature: null, stamp: null }
   const logo = { dataUrl: 'data:image/png;base64,AAAA', width: 400, height: 200 }
 
   it('records snapshots newest first, and re-recording replaces the old one', () => {
@@ -291,7 +310,9 @@ describe('history store', () => {
   it('stores a copy that later edits cannot change', () => {
     const invoice = createSampleInvoice()
     const payment = { ...emptyPaymentDetails(), instructions: 'Bank A' }
-    useHistoryStore.getState().recordInvoice(invoice, { payment, logo: null })
+    useHistoryStore
+      .getState()
+      .recordInvoice(invoice, { payment, logo: null, signature: null, stamp: null })
     invoice.from.name = 'Changed later'
     payment.instructions = 'Bank B'
     expect(useHistoryStore.getState().entries[0]).toMatchObject({
@@ -320,6 +341,20 @@ describe('history store', () => {
     expect(useHistoryStore.getState().logos).toEqual({})
   })
 
+  it('keeps the signature and stamp an invoice was printed with', () => {
+    const signature = { ...logo, dataUrl: 'data:image/png;base64,SIGN' }
+    const stamp = { ...logo, dataUrl: 'data:image/png;base64,STMP' }
+    const { recordInvoice, removeEntry } = useHistoryStore.getState()
+    recordInvoice(createSampleInvoice({ id: 'a' }), { ...assets, logo, signature, stamp })
+    const [entry] = useHistoryStore.getState().entries
+    const { logos } = useHistoryStore.getState()
+    expect(logos[entry.issuedWith!.signatureId!]).toEqual(signature)
+    expect(logos[entry.issuedWith!.stampId!]).toEqual(stamp)
+    expect(Object.keys(logos)).toHaveLength(3)
+    removeEntry(entry.id)
+    expect(useHistoryStore.getState().logos).toEqual({})
+  })
+
   it('clears the paid date when marked unpaid, and removes entries', () => {
     const { recordInvoice, setStatus, removeEntry } = useHistoryStore.getState()
     recordInvoice(createSampleInvoice(), assets)
@@ -332,5 +367,43 @@ describe('history store', () => {
     setStatus('someone-else', 'paid')
     removeEntry(id)
     expect(useHistoryStore.getState().entries).toEqual([])
+  })
+})
+
+describe('“Tax Invoice” upgrade', () => {
+  afterEach(() => vi.resetModules())
+
+  it('capitalises the title in saved settings and the saved draft', async () => {
+    const { documentTitle: _, ...older } = initialSettings
+    localStorage.setItem(
+      'paperless:settings',
+      JSON.stringify({ state: { ...older, documentTitle: 'Tax invoice' }, version: 1 }),
+    )
+    localStorage.setItem(
+      'paperless:draft',
+      JSON.stringify({
+        state: { invoice: createSampleInvoice({ title: 'Tax invoice' }) },
+        version: 1,
+      }),
+    )
+    vi.resetModules()
+    const fresh = await import('./stores')
+    expect(fresh.useSettingsStore.getState().documentTitle).toBe('Tax Invoice')
+    expect(fresh.useDraftStore.getState().invoice?.title).toBe('Tax Invoice')
+  })
+
+  it('leaves other titles, and an empty draft, alone', async () => {
+    localStorage.setItem(
+      'paperless:settings',
+      JSON.stringify({ state: { ...initialSettings, documentTitle: 'Bill' }, version: 1 }),
+    )
+    localStorage.setItem(
+      'paperless:draft',
+      JSON.stringify({ state: { invoice: null }, version: 1 }),
+    )
+    vi.resetModules()
+    const fresh = await import('./stores')
+    expect(fresh.useSettingsStore.getState().documentTitle).toBe('Bill')
+    expect(fresh.useDraftStore.getState().invoice).toBeNull()
   })
 })

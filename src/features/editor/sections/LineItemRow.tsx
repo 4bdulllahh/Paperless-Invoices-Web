@@ -19,6 +19,12 @@ type LineItemRowProps = {
   locale: string
   /** Formatted line total. */
   amount: string
+  /** Tax and total with tax, when the invoice shows tax on each line. */
+  lineTax?: { label: string; tax: string; total: string }
+  /** The id of the list of common units, for suggestions. */
+  unitListId: string
+  /** What the item code is called where the law asks for one (e.g. "HSN/SAC"); else empty. */
+  codeLabel: string
   autoFocus: boolean
   onChange: (patch: Partial<LineItem>) => void
   onMove: (direction: -1 | 1) => void
@@ -34,6 +40,9 @@ export function LineItemRow({
   count,
   locale,
   amount,
+  lineTax,
+  unitListId,
+  codeLabel,
   autoFocus,
   onChange,
   onMove,
@@ -101,13 +110,32 @@ export function LineItemRow({
         onChange={(e) => onChange({ description: e.target.value })}
         onKeyDown={enterAddsLine}
       />
-      <div className="grid grid-cols-[1fr_1.4fr_1fr] gap-2">
+      {(codeLabel || item.code) && (
+        <TextField
+          label={codeLabel || 'Item code'}
+          optional={!codeLabel}
+          spellCheck={false}
+          value={item.code}
+          onChange={(e) => onChange({ code: e.target.value })}
+          onKeyDown={enterAddsLine}
+        />
+      )}
+      <div className="grid grid-cols-2 gap-2 min-[28rem]:grid-cols-[0.9fr_1fr_1.3fr_0.9fr]">
         <DecimalField
           label="Qty"
           locale={locale}
           value={item.quantity}
           validate={validateQuantity}
           onCommit={(quantity) => onChange({ quantity })}
+          onKeyDown={enterAddsLine}
+        />
+        <TextField
+          label="Unit"
+          placeholder="Pcs"
+          list={unitListId}
+          autoComplete="off"
+          value={item.unit}
+          onChange={(e) => onChange({ unit: e.target.value })}
           onKeyDown={enterAddsLine}
         />
         <DecimalField
@@ -177,9 +205,25 @@ export function LineItemRow({
             Add discount
           </Button>
         )}
-        <span className="text-sm">
-          <span className="text-fg-subtle">Amount </span>
-          <span className="font-display font-semibold tabular-nums">{amount}</span>
+        <span className="flex flex-wrap justify-end gap-x-3 text-sm">
+          <span>
+            <span className="text-fg-subtle">Amount </span>
+            <span className={lineTax ? 'tabular-nums' : 'font-display font-semibold tabular-nums'}>
+              {amount}
+            </span>
+          </span>
+          {lineTax && (
+            <>
+              <span>
+                <span className="text-fg-subtle">{lineTax.label} </span>
+                <span className="tabular-nums">{lineTax.tax}</span>
+              </span>
+              <span>
+                <span className="text-fg-subtle">Total </span>
+                <span className="font-display font-semibold tabular-nums">{lineTax.total}</span>
+              </span>
+            </>
+          )}
         </span>
       </div>
     </div>

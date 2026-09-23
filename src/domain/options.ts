@@ -61,8 +61,8 @@ export const TEMPLATE_OPTIONS: readonly {
   { value: 'compact', label: 'Compact', description: 'Dense, for long item lists' },
 ]
 
-/** 0 is "due on receipt"; the rest are "Net N" terms. */
-export const PAYMENT_TERMS = [0, 7, 14, 15, 30, 45, 60, 90] as const
+/** 0 is "on delivery"; the rest are "Net N" terms. */
+export const PAYMENT_TERMS = [0, 15, 30, 45, 60, 75, 90] as const
 
 export function currencyOptions(displayLocale: string): { common: Option[]; others: Option[] } {
   const names = new Intl.DisplayNames([displayLocale], { type: 'currency' })
@@ -97,8 +97,14 @@ export function formatSample(locale: string, currency: string, isoDate: string):
 }
 
 export function paymentTermsLabel(days: number): string {
-  if (days === 0) return 'Due on receipt'
+  if (days === 0) return 'On delivery'
   return `Within ${days} days (Net ${days})`
+}
+
+/** As printed on an invoice: "Net 30 days", or "On delivery". */
+export function paymentTermsText(days: number): string {
+  if (days === 0) return 'On delivery'
+  return `Net ${days} ${days === 1 ? 'day' : 'days'}`
 }
 
 /** The standard terms, plus the saved value if it's a custom one. */

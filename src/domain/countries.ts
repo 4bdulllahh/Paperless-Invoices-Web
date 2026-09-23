@@ -3,7 +3,7 @@ import type { Settings } from './records'
 /**
  * Invoice conventions by country: currency, number and date format, what sales tax is called and
  * its standard rate, how tax numbers are labelled, and whether invoices must be titled
- * "Tax invoice". Standard rates as of 2026; many countries also have reduced rates, so every
+ * "Tax Invoice". Standard rates as of 2026; many countries also have reduced rates, so every
  * value stays editable.
  *
  * Locales are English variants with the country's number and date style. Native locales could
@@ -19,9 +19,13 @@ export type CountryPreset = {
   /** Standard rate; empty when there's none or it varies by region. */
   taxRate: string
   taxIdLabel: string
-  title: 'Invoice' | 'Tax invoice'
+  title: 'Invoice' | 'Tax Invoice'
   /** Customary to write the total in words (South Asia, the Gulf). */
   amountInWords: boolean
+  /** Tax invoices there show the tax rate and amount on every line (the Gulf, India). */
+  lineTax: boolean
+  /** Invoices there are customarily signed or stamped. */
+  sign: boolean
   /** Something the user should know before relying on a PDF invoice there. */
   note?: string
 }
@@ -33,10 +37,10 @@ type Row = [
   taxLabel: string,
   taxRate: string,
   taxIdLabel: string,
-  extras?: { title?: 'Tax invoice'; words?: true; note?: string },
+  extras?: { title?: 'Tax Invoice'; words?: true; lineTax?: true; sign?: true; note?: string },
 ]
 
-const TAX_INVOICE = 'Tax invoice' as const
+const TAX_INVOICE = 'Tax Invoice' as const
 const EU = (code: string, rate: string, locale = 'en-150', note?: string): Row => [
   code,
   'EUR',
@@ -47,6 +51,8 @@ const EU = (code: string, rate: string, locale = 'en-150', note?: string): Row =
   note ? { note } : undefined,
 ]
 const GULF = { words: true } as const
+/** Gulf VAT: "Tax Invoice", total in words, VAT on every line, signed and stamped. */
+const GULF_VAT = { title: TAX_INVOICE, words: true, lineTax: true, sign: true } as const
 
 const ROWS: Row[] = [
   // European Union (euro area)
@@ -198,6 +204,8 @@ const ROWS: Row[] = [
     {
       title: TAX_INVOICE,
       words: true,
+      lineTax: true,
+      sign: true,
       note: 'Within your state GST is shown as CGST + SGST (half each); between states it’s IGST. Larger businesses must also register e-invoices (IRN).',
     },
   ],
@@ -249,9 +257,8 @@ const ROWS: Row[] = [
     '5',
     'TRN',
     {
-      title: TAX_INVOICE,
-      words: true,
-      note: 'VAT-registered businesses must show their TRN on tax invoices, and the client’s TRN if they’re registered too.',
+      ...GULF_VAT,
+      note: 'Tax invoices must show your TRN, and the client’s TRN if they’re VAT-registered, with VAT in AED. E-invoicing through an accredited provider becomes mandatory from 1 January 2027 for businesses with revenue of AED 50 million or more, and from 1 July 2027 for everyone else.',
     },
   ],
   [
@@ -262,13 +269,12 @@ const ROWS: Row[] = [
     '15',
     'VAT no.',
     {
-      title: TAX_INVOICE,
-      words: true,
+      ...GULF_VAT,
       note: 'Saudi tax invoices must come from ZATCA-compliant e-invoicing software (Fatoora). Use Paperless for quotes or records.',
     },
   ],
-  ['BH', 'BHD', 'en-AE', 'VAT', '10', 'VAT account no.', { title: TAX_INVOICE, words: true }],
-  ['OM', 'OMR', 'en-AE', 'VAT', '5', 'VATIN', { title: TAX_INVOICE, words: true }],
+  ['BH', 'BHD', 'en-AE', 'VAT', '10', 'VAT account no.', GULF_VAT],
+  ['OM', 'OMR', 'en-AE', 'VAT', '5', 'VATIN', GULF_VAT],
   ['QA', 'QAR', 'en-AE', '', '', 'Tax ID', { ...GULF, note: 'Qatar has no VAT yet.' }],
   ['KW', 'KWD', 'en-AE', '', '', 'Tax ID', { ...GULF, note: 'Kuwait has no VAT yet.' }],
   ['JO', 'JOD', 'en-AE', 'Sales tax', '16', 'Tax no.', GULF],
@@ -305,6 +311,8 @@ export const COUNTRY_PRESETS: readonly CountryPreset[] = ROWS.map(
     taxIdLabel,
     title: extras?.title ?? 'Invoice',
     amountInWords: extras?.words ?? false,
+    lineTax: extras?.lineTax ?? false,
+    sign: extras?.sign ?? false,
     ...(extras?.note && { note: extras.note }),
   }),
 )
@@ -317,6 +325,15 @@ export function findCountry(code: string): CountryPreset | undefined {
 export function countryName(code: string): string {
   // With the default fallback ('code'), of() returns the code itself for unknown regions.
   return new Intl.DisplayNames(['en'], { type: 'region' }).of(code) as string
+}
+
+/** Names that take "the" in a sentence. */
+const WITH_THE = /^(United|Netherlands|Philippines|Czech Republic)/
+
+/** The name as it reads mid-sentence: "the United Arab Emirates", "India". */
+export function countryInSentence(code: string): string {
+  const name = countryName(code)
+  return WITH_THE.test(name) ? `the ${name}` : name
 }
 
 /** Every country with a preset, alphabetically by name, for a picker. */
@@ -337,5 +354,106 @@ export function countrySettings(preset: CountryPreset): Partial<Settings> {
     taxIdLabel: preset.taxIdLabel,
     documentTitle: preset.title,
     amountInWords: preset.amountInWords,
+    showLineTax: preset.lineTax,
+    signInvoices: preset.sign,
   }
+}
+
+/** Main time zones of each country with a preset (Intl names, including older aliases). */
+const TIME_ZONES: Record<string, string[]> = {
+  AE: ['Asia/Dubai'],
+  SA: ['Asia/Riyadh'],
+  BH: ['Asia/Bahrain'],
+  OM: ['Asia/Muscat'],
+  QA: ['Asia/Qatar'],
+  KW: ['Asia/Kuwait'],
+  JO: ['Asia/Amman'],
+  EG: ['Africa/Cairo'],
+  IL: ['Asia/Jerusalem', 'Asia/Tel_Aviv'],
+  ZA: ['Africa/Johannesburg'],
+  NG: ['Africa/Lagos'],
+  KE: ['Africa/Nairobi'],
+  IN: ['Asia/Kolkata', 'Asia/Calcutta'],
+  PK: ['Asia/Karachi'],
+  BD: ['Asia/Dhaka', 'Asia/Dacca'],
+  LK: ['Asia/Colombo'],
+  NP: ['Asia/Kathmandu', 'Asia/Katmandu'],
+  SG: ['Asia/Singapore'],
+  MY: ['Asia/Kuala_Lumpur', 'Asia/Kuching'],
+  PH: ['Asia/Manila'],
+  TH: ['Asia/Bangkok'],
+  JP: ['Asia/Tokyo'],
+  KR: ['Asia/Seoul'],
+  TW: ['Asia/Taipei'],
+  HK: ['Asia/Hong_Kong'],
+  NZ: ['Pacific/Auckland'],
+  GB: ['Europe/London'],
+  IE: ['Europe/Dublin'],
+  CH: ['Europe/Zurich'],
+  NO: ['Europe/Oslo'],
+  IS: ['Atlantic/Reykjavik'],
+  TR: ['Europe/Istanbul'],
+  AT: ['Europe/Vienna'],
+  BE: ['Europe/Brussels'],
+  BG: ['Europe/Sofia'],
+  HR: ['Europe/Zagreb'],
+  CY: ['Asia/Nicosia', 'Europe/Nicosia'],
+  EE: ['Europe/Tallinn'],
+  FI: ['Europe/Helsinki'],
+  FR: ['Europe/Paris'],
+  DE: ['Europe/Berlin'],
+  GR: ['Europe/Athens'],
+  IT: ['Europe/Rome'],
+  LV: ['Europe/Riga'],
+  LT: ['Europe/Vilnius'],
+  LU: ['Europe/Luxembourg'],
+  MT: ['Europe/Malta'],
+  NL: ['Europe/Amsterdam'],
+  PT: ['Europe/Lisbon', 'Atlantic/Madeira', 'Atlantic/Azores'],
+  SK: ['Europe/Bratislava'],
+  SI: ['Europe/Ljubljana'],
+  ES: ['Europe/Madrid', 'Atlantic/Canary'],
+  CZ: ['Europe/Prague'],
+  DK: ['Europe/Copenhagen'],
+  HU: ['Europe/Budapest'],
+  PL: ['Europe/Warsaw'],
+  RO: ['Europe/Bucharest'],
+  SE: ['Europe/Stockholm'],
+  US: [
+    'America/New_York',
+    'America/Chicago',
+    'America/Denver',
+    'America/Phoenix',
+    'America/Los_Angeles',
+    'America/Anchorage',
+    'America/Detroit',
+    'Pacific/Honolulu',
+  ],
+  CA: [
+    'America/Toronto',
+    'America/Vancouver',
+    'America/Edmonton',
+    'America/Winnipeg',
+    'America/Halifax',
+    'America/St_Johns',
+    'America/Regina',
+  ],
+  MX: ['America/Mexico_City', 'America/Monterrey', 'America/Tijuana', 'America/Cancun'],
+  BR: ['America/Sao_Paulo', 'America/Manaus', 'America/Fortaleza', 'America/Recife'],
+}
+
+/**
+ * The country this device is probably in, if it has a preset: from the time zone, else the
+ * region in the browser's languages ("en-AE"). A guess to start from; the user confirms it.
+ */
+export function guessCountry(timeZone: string, languages: readonly string[]): string {
+  const byZone =
+    Object.keys(TIME_ZONES).find((code) => TIME_ZONES[code].includes(timeZone)) ??
+    (timeZone.startsWith('Australia/') ? 'AU' : undefined)
+  if (byZone) return byZone
+  for (const language of languages) {
+    const region = language.split('-').find((part, i) => i > 0 && /^[A-Z]{2}$/.test(part))
+    if (region && findCountry(region)) return region
+  }
+  return ''
 }

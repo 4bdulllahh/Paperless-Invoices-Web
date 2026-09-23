@@ -19,22 +19,24 @@ describe('InvoiceDefaultsForm', () => {
     type('Number & date format', 'en-GB')
     type('Tax name', 'VAT')
     type('Payment terms', '30')
-    fireEvent.click(screen.getByRole('radio', { name: 'Tax included' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'Payment terms' }))
     type('Template', 'corporate')
     type('Tax number label', 'VAT reg. no.')
-    type('Title', 'Tax invoice')
+    type('Title', 'Tax Invoice')
     fireEvent.click(screen.getByRole('checkbox', { name: 'Write the total in words' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Show tax on each line' }))
 
     expect(useSettingsStore.getState()).toMatchObject({
       currency: 'GBP',
       locale: 'en-GB',
       taxLabel: 'VAT',
       paymentTermsDays: 30,
-      taxMode: 'inclusive',
+      dueMode: 'terms',
       templateId: 'corporate',
       taxIdLabel: 'VAT reg. no.',
-      documentTitle: 'Tax invoice',
+      documentTitle: 'Tax Invoice',
       amountInWords: true,
+      showLineTax: true,
     })
   })
 

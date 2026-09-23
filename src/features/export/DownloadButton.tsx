@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useRef } from 'react'
 import { Button } from '../../components/ui/Button'
+import { countryInSentence } from '../../domain/countries'
 import type { ExportSection } from '../../domain/export'
 import { useDraftStore } from '../../storage/stores'
 import { SECTION_LABELS } from '../editor/revealSection'
@@ -28,12 +29,15 @@ type DownloadButtonProps = {
  */
 export function DownloadButton({ onFixIssue }: DownloadButtonProps) {
   const hasDraft = useDraftStore((state) => state.invoice !== null)
+  const country = useDraftStore((state) => state.invoice?.country ?? '')
   const { state, download, dismiss } = useDownloadInvoice()
   const wrapper = useRef<HTMLDivElement>(null)
   const panel = useRef<HTMLDivElement>(null)
   const button = useRef<HTMLButtonElement>(null)
   const working = state.phase === 'working'
   const open = state.phase === 'issues' || state.phase === 'done' || state.phase === 'error'
+  // Only legal warnings left: the user may download anyway.
+  const onlyWarnings = state.phase === 'issues' && state.issues.every((issue) => issue.legal)
 
   // Move focus to the list of problems, so keyboard and screen reader users land on it.
   useEffect(() => {
@@ -113,7 +117,9 @@ export function DownloadButton({ onFixIssue }: DownloadButtonProps) {
             <div className="min-w-0 flex-1">
               <p id="download-note-title" className="font-display font-semibold">
                 {state.phase === 'issues'
-                  ? 'A few things before you download'
+                  ? onlyWarnings
+                    ? 'Missing for a legal invoice'
+                    : 'A few things before you download'
                   : state.phase === 'done'
                     ? 'Downloaded and saved to History'
                     : 'The PDF couldn’t be created'}
@@ -125,6 +131,12 @@ export function DownloadButton({ onFixIssue }: DownloadButtonProps) {
               )}
               {state.phase === 'error' && (
                 <p className="text-fg-muted">Nothing was saved. Please try again.</p>
+              )}
+              {onlyWarnings && country && (
+                <p className="text-fg-muted">
+                  Invoices in {countryInSentence(country)} need these by law. You can still
+                  download.
+                </p>
               )}
             </div>
             <Button
@@ -150,7 +162,10 @@ export function DownloadButton({ onFixIssue }: DownloadButtonProps) {
                       onFixIssue(issue.section)
                     }}
                   >
-                    <span className="min-w-0 flex-1">{issue.message}</span>
+                    <span className="min-w-0 flex-1">
+                      {issue.legal && <span className="sr-only">Advised: </span>}
+                      {issue.message}
+                    </span>
                     <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-fg-subtle">
                       {SECTION_LABELS[issue.section]}
                       <ArrowRight className="size-3.5" aria-hidden="true" />
@@ -161,6 +176,19 @@ export function DownloadButton({ onFixIssue }: DownloadButtonProps) {
             </ul>
           )}
 
+          {onlyWarnings && (
+            <Button
+              size="sm"
+              className="self-start"
+              onClick={() => {
+                button.current?.focus()
+                void download(true)
+              }}
+            >
+              <Download />
+              Download anyway
+            </Button>
+          )}
           {state.phase === 'done' && (
             <Button
               size="sm"

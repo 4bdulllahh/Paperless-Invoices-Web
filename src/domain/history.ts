@@ -1,5 +1,5 @@
 import { isOverdue } from './dates'
-import type { HistoryEntry, Logo, PaymentDetails } from './records'
+import type { HistoryEntry, Logo, PrintAssets } from './records'
 
 /** Downloaded invoices: payment status, search and filters for the History panel. */
 
@@ -55,15 +55,16 @@ export function countByFilter(
 }
 
 /**
- * The payment details and logo to print a saved invoice with: those it was issued with, or the
- * current ones for invoices saved before they were kept.
+ * The payment details and images to print a saved invoice with: those it was issued with, or
+ * the current ones for invoices saved before they were kept.
  */
 export function issuedAssets(
   entry: HistoryEntry,
   logos: Readonly<Record<string, Logo>>,
-  current: { payment: PaymentDetails; logo: Logo | null },
-): { payment: PaymentDetails; logo: Logo | null } {
+  current: PrintAssets,
+): PrintAssets {
   if (!entry.issuedWith) return current
-  const { payment, logoId } = entry.issuedWith
-  return { payment, logo: logoId ? (logos[logoId] ?? null) : null }
+  const { payment, logoId, signatureId, stampId } = entry.issuedWith
+  const image = (id: string | null) => (id ? (logos[id] ?? null) : null)
+  return { payment, logo: image(logoId), signature: image(signatureId), stamp: image(stampId) }
 }

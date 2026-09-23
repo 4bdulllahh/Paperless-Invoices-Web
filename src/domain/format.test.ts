@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { formatDate, formatMoney, formatQuantity, formatRate, formatUnitPrice } from './format'
+import {
+  formatAmount,
+  formatDate,
+  formatMoney,
+  formatPlainUnitPrice,
+  formatQuantity,
+  formatRate,
+  formatUnitPrice,
+} from './format'
 
 // Intl uses non-breaking spaces (e.g. "1.234,56 €"); compare with plain spaces.
 const plain = (s: string) => s.replace(/\s/g, ' ')
@@ -49,5 +57,21 @@ describe('formatDate', () => {
   it('formats the calendar date without shifting it by time zone', () => {
     expect(formatDate('2026-09-23', 'en-US')).toBe('Sep 23, 2026')
     expect(formatDate('2026-01-01', 'en-US')).toBe('Jan 1, 2026')
+  })
+})
+
+describe('formatAmount', () => {
+  it('prints minor units without the currency, for columns headed with it', () => {
+    expect(formatAmount(264180, 'AED', 'en-AE')).toBe('2,641.80')
+    expect(formatAmount(5, 'AED', 'en-AE')).toBe('0.05')
+    expect(formatAmount(1200, 'JPY', 'en-US')).toBe('1,200')
+  })
+})
+
+describe('formatPlainUnitPrice', () => {
+  it('pads to the currency’s decimals and keeps extra precision', () => {
+    expect(formatPlainUnitPrice('17', 'AED', 'en-AE')).toBe('17.00')
+    expect(formatPlainUnitPrice('0.125', 'USD', 'en-US')).toBe('0.125')
+    expect(formatPlainUnitPrice('abc', 'USD', 'en-US')).toBe('abc')
   })
 })

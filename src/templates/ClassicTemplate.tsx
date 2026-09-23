@@ -11,7 +11,14 @@ import {
   partyLines,
   type TemplateProps,
 } from './layout'
-import { LogoImage, PageFooter, PartyBlock, PaymentAndNotes, TotalInWords } from './shared'
+import {
+  LogoImage,
+  PageFooter,
+  PartyBlock,
+  PaymentAndNotes,
+  SignatureBlock,
+  TotalInWords,
+} from './shared'
 
 const RULE = '#8a847b'
 
@@ -112,8 +119,8 @@ const s = StyleSheet.create({
   },
 })
 
-export function ClassicTemplate({ view, logo, payment, qr }: TemplateProps) {
-  const columns = itemColumns(view)
+export function ClassicTemplate({ view, logo, payment, qr, signature, stamp }: TemplateProps) {
+  const columns = itemColumns(view, 495)
   const balance = view.totals.find((row) => row.kind === 'balance')!
   const summary = view.totals.filter((row) => row.kind !== 'balance')
   const [address, contact] = [
@@ -143,8 +150,7 @@ export function ClassicTemplate({ view, logo, payment, qr }: TemplateProps) {
         <View style={s.metaTable}>
           {[
             ['Invoice no.', view.number],
-            ['Date', view.issueDate],
-            ['Due', view.dueDate],
+            ...view.facts.map((fact) => [fact.label, fact.value]),
           ].map(([label, value]) => (
             <View key={label} style={s.metaRow}>
               <Text style={s.metaLabel}>{label}</Text>
@@ -181,6 +187,11 @@ export function ClassicTemplate({ view, logo, payment, qr }: TemplateProps) {
 
       <View style={s.bottom} wrap={false}>
         <View style={s.notes}>
+          <TotalInWords
+            text={view.totalInWords}
+            style={{ ...s.words, marginTop: 0, marginBottom: 12 }}
+            labelStyle={s.wordsLabel}
+          />
           <PaymentAndNotes
             payment={payment}
             qr={qr}
@@ -205,10 +216,14 @@ export function ClassicTemplate({ view, logo, payment, qr }: TemplateProps) {
             <Text style={s.balanceText}>{balance.label}</Text>
             <Text style={s.balanceText}>{balance.value}</Text>
           </View>
+          <SignatureBlock
+            signed={view.signed}
+            signature={signature}
+            stamp={stamp}
+            name={view.from.name}
+          />
         </View>
       </View>
-
-      <TotalInWords text={view.totalInWords} style={s.words} labelStyle={s.wordsLabel} />
 
       <PageFooter number={view.number} style={s.footer} />
     </Page>

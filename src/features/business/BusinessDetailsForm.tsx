@@ -1,6 +1,7 @@
 import { TextAreaField, TextField } from '../../components/ui/Field'
+import { taxIdIssue, taxIdRules } from '../../domain/compliance'
 import { businessIssues } from '../../domain/records'
-import { useProfileStore } from '../../storage/stores'
+import { useProfileStore, useSettingsStore } from '../../storage/stores'
 import { LogoField } from './LogoField'
 
 type BusinessDetailsFormProps = {
@@ -13,6 +14,9 @@ export function BusinessDetailsForm({ showRequired = false }: BusinessDetailsFor
   const business = useProfileStore((state) => state.business)
   const updateBusiness = useProfileStore((state) => state.updateBusiness)
   const issues = businessIssues(business)
+  const country = useSettingsStore((state) => state.country)
+  const taxIdLabel = useSettingsStore((state) => state.taxIdLabel) || 'Tax ID'
+  const taxId = taxIdRules(country)
 
   return (
     <div className="flex flex-col gap-4">
@@ -46,9 +50,19 @@ export function BusinessDetailsForm({ showRequired = false }: BusinessDetailsFor
           onChange={(e) => updateBusiness({ phone: e.target.value })}
         />
         <TextField
-          label="Tax ID"
-          optional
-          placeholder="VAT, GST or EIN number"
+          label={taxIdLabel}
+          optional={!taxId.required}
+          required={taxId.required}
+          placeholder={taxId.example || 'Your tax registration number'}
+          autoComplete="off"
+          spellCheck={false}
+          hint={`Just the number, without “${taxIdLabel}” in front.`}
+          error={
+            taxIdIssue(country, business.taxId, taxIdLabel) ??
+            (showRequired && taxId.required && !business.taxId.trim()
+              ? `Invoices here must show your ${taxIdLabel}.`
+              : undefined)
+          }
           value={business.taxId}
           onChange={(e) => updateBusiness({ taxId: e.target.value })}
         />

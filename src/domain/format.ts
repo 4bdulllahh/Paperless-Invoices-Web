@@ -51,3 +51,22 @@ export function formatDate(isoDate: string, locale: string): string {
     new Date(`${isoDate}T00:00:00Z`),
   )
 }
+
+/** An amount without the currency, for columns headed with it: 2641.80 → "2,641.80". */
+export function formatAmount(minor: number, currency: string, locale: string): string {
+  const digits = currencyDigits(currency)
+  return new Intl.NumberFormat(locale, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(minorToDecimal(minor, currency) as IntlDecimal)
+}
+
+/** A typed unit price without the currency: "17" AED → "17.00". Invalid input is shown as typed. */
+export function formatPlainUnitPrice(price: string, currency: string, locale: string): string {
+  const scaled = parseDecimal(price, MONEY_SCALE)
+  if (scaled === null) return price
+  return new Intl.NumberFormat(locale, {
+    minimumFractionDigits: currencyDigits(currency),
+    maximumFractionDigits: MONEY_SCALE,
+  }).format(toDecimalString(scaled, MONEY_SCALE) as IntlDecimal)
+}

@@ -12,14 +12,14 @@ import {
   paymentTermsOptions,
   TEMPLATE_OPTIONS,
 } from '../../domain/options'
-import { percentSchema, type TaxMode, type TemplateId } from '../../domain/schema'
+import { percentSchema, type DueMode, type TemplateId } from '../../domain/schema'
 import { useSettingsStore } from '../../storage/stores'
 import { CountryField } from './CountryField'
 
-const TAX_MODE_OPTIONS = [
-  { value: 'exclusive', label: 'Tax added on top' },
-  { value: 'inclusive', label: 'Tax included' },
-] as const satisfies readonly { value: TaxMode; label: string }[]
+const DUE_MODE_OPTIONS = [
+  { value: 'date', label: 'Due date' },
+  { value: 'terms', label: 'Payment terms' },
+] as const satisfies readonly { value: DueMode; label: string }[]
 
 function validateRate(text: string) {
   if (!percentSchema.safeParse(text).success) return 'Enter a percentage, e.g. 20 or 8.875.'
@@ -128,16 +128,12 @@ export function InvoiceDefaultsForm({ showCountry = true }: { showCountry?: bool
           value={settings.taxIdLabel}
           onChange={(e) => updateSettings({ taxIdLabel: e.target.value })}
         />
-        <div className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-fg-muted">Prices you enter have</span>
-          <SegmentedControl
-            label="Prices you enter have"
-            options={TAX_MODE_OPTIONS}
-            value={settings.taxMode}
-            onChange={(taxMode) => updateSettings({ taxMode })}
-            className="self-start"
-          />
-        </div>
+        <CheckboxField
+          label="Show tax on each line"
+          hint="The rate, amount and total with tax on every line, as Gulf and Indian tax invoices do."
+          checked={settings.showLineTax}
+          onChange={(e) => updateSettings({ showLineTax: e.target.checked })}
+        />
       </Group>
 
       <Group title="Terms & numbering">
@@ -145,7 +141,7 @@ export function InvoiceDefaultsForm({ showCountry = true }: { showCountry?: bool
           label="Payment terms"
           value={String(settings.paymentTermsDays)}
           onChange={(e) => updateSettings({ paymentTermsDays: Number(e.target.value) })}
-          hint="Sets the due date on new invoices."
+          hint="Sets the due date on new invoices, or is printed instead of it."
         >
           {paymentTermsOptions(settings.paymentTermsDays).map((o) => (
             <option key={o.value} value={o.value}>
@@ -153,6 +149,16 @@ export function InvoiceDefaultsForm({ showCountry = true }: { showCountry?: bool
             </option>
           ))}
         </SelectField>
+        <div className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-fg-muted">Print on invoices</span>
+          <SegmentedControl
+            label="Print on invoices"
+            options={DUE_MODE_OPTIONS}
+            value={settings.dueMode}
+            onChange={(dueMode) => updateSettings({ dueMode })}
+            className="self-start"
+          />
+        </div>
         <div className="grid gap-4 sm:grid-cols-[2fr_1fr]">
           <CommitTextField
             label="Invoice number format"
@@ -177,7 +183,7 @@ export function InvoiceDefaultsForm({ showCountry = true }: { showCountry?: bool
           <TextField
             label="Title"
             placeholder="Invoice"
-            hint="Some countries require “Tax invoice”."
+            hint="Some countries require “Tax Invoice”."
             value={settings.documentTitle}
             onChange={(e) => updateSettings({ documentTitle: e.target.value })}
           />

@@ -62,7 +62,7 @@ export function ChoiceChips<T extends string>({
             <label
               key={option.value}
               className={cn(
-                'flex h-9 cursor-pointer items-center gap-1.5 rounded-full border px-3.5 text-sm font-medium transition select-none has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent',
+                'relative flex h-9 cursor-pointer items-center gap-1.5 rounded-full border px-3.5 text-sm font-medium transition select-none has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent',
                 on
                   ? 'border-accent bg-accent-soft text-fg'
                   : 'border-line-strong bg-surface text-fg-muted hover:bg-surface-muted',

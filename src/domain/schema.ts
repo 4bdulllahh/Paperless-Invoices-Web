@@ -48,6 +48,37 @@ export const discountSchema = z
     }
   })
 
+/** Ways a client can pay, printed on invoices as "Accepted: Bank transfer · Card…". */
+export const PAYMENT_METHODS = ['bank', 'card', 'cash', 'cheque'] as const
+
+/** What the QR code on an invoice does when scanned, if there is one. */
+export const QR_METHODS = ['link', 'upi', 'sepa', 'none'] as const
+
+/**
+ * How clients pay. The QR details are plain strings here: a mistyped IBAN only means no QR code,
+ * never a profile that fails to load. Saved as the business default, and on an invoice whose
+ * payment details were changed for that invoice alone.
+ */
+export const paymentDetailsSchema = z.object({
+  /** Free text printed on invoices, under the bank details. */
+  instructions: z.string(),
+  /** Optional https link a client can pay at (PayPal, Stripe, Wise…). */
+  link: z.string().trim(),
+  qr: z.enum(QR_METHODS),
+  /** UPI ID for rupee invoices, e.g. acmestudio@okhdfcbank. */
+  upiId: z.string().trim(),
+  /** Printed with the bank details, and used for SEPA QR codes on euro invoices. */
+  iban: z.string().trim(),
+  /** SWIFT/BIC. Optional within the SEPA area. */
+  bic: z.string().trim(),
+  /** Accepted payment methods (added in 1.1; the default keeps older profiles valid). */
+  methods: z.array(z.enum(PAYMENT_METHODS)).default([]),
+  /** Bank details, added in 1.2. */
+  bankName: z.string().trim().default(''),
+  accountName: z.string().trim().default(''),
+  accountNumber: z.string().trim().default(''),
+})
+
 export const partySchema = z.object({
   name: z.string().trim(),
   email: z.string().trim(),
@@ -66,7 +97,14 @@ export const lineItemSchema = z.object({
   /** Percentage, e.g. "20". Empty means no tax. */
   taxRate: percentSchema,
   discount: discountSchema,
+  /** Unit of measure, e.g. "Pcs", "Sets", "Hrs" (added in 1.2). */
+  unit: z.string().trim().default(''),
+  /** Product or service code where the law asks for one, e.g. HSN/SAC in India (added in 1.2). */
+  code: z.string().trim().default(''),
 })
+
+/** A due date, or payment terms ("Net 30 days") printed in its place. */
+export const DUE_MODES = ['date', 'terms'] as const
 
 export const invoiceSchema = z.object({
   id: z.string().min(1),
@@ -97,6 +135,27 @@ export const invoiceSchema = z.object({
   taxIdLabel: z.string().trim().default('Tax ID'),
   /** Print the total in words, e.g. "One thousand US dollars only". */
   amountInWords: z.boolean().default(false),
+  /**
+   * Added in 1.2, again with defaults that leave older invoices printing exactly as they did.
+   */
+  /** Whose rules the invoice follows, as an ISO code (e.g. "AE"); empty when unknown. */
+  country: z.string().default(''),
+  /** The client's purchase order (LPO in the Gulf). */
+  poNumber: z.string().trim().default(''),
+  /** When the goods or services were supplied, if not on the issue date. */
+  supplyDate: z.union([z.iso.date(), z.literal('')]).default(''),
+  dueMode: z.enum(DUE_MODES).default('date'),
+  /** Days from the issue date to the due date; 0 is "on delivery". */
+  paymentTermsDays: z.number().int().min(0).max(365).default(30),
+  /** Payment details changed for this invoice only; null uses the business defaults. */
+  payment: paymentDetailsSchema.nullable().default(null),
+  /** Print the signature and stamp, or a line to sign on. */
+  signed: z.boolean().default(false),
+  /**
+   * Show the tax rate and amount on every line, as Gulf and Indian tax invoices do. Tax is then
+   * rounded line by line, so the printed lines add up to the totals.
+   */
+  showLineTax: z.boolean().default(false),
 })
 
 export type Party = z.infer<typeof partySchema>
@@ -105,3 +164,7 @@ export type LineItem = z.infer<typeof lineItemSchema>
 export type Invoice = z.infer<typeof invoiceSchema>
 export type TemplateId = (typeof TEMPLATE_IDS)[number]
 export type TaxMode = (typeof TAX_MODES)[number]
+export type DueMode = (typeof DUE_MODES)[number]
+export type PaymentDetails = z.infer<typeof paymentDetailsSchema>
+export type QrMethod = (typeof QR_METHODS)[number]
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number]

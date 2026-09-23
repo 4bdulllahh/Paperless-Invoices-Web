@@ -38,6 +38,8 @@ export function createSampleInvoice(overrides: Partial<Invoice> = {}): Invoice {
         unitPrice: '2400',
         taxRate: '8.875',
         discount: { type: 'none', value: '' },
+        unit: '',
+        code: '',
       },
       {
         id: 'item-2',
@@ -46,6 +48,8 @@ export function createSampleInvoice(overrides: Partial<Invoice> = {}): Invoice {
         unitPrice: '75',
         taxRate: '8.875',
         discount: { type: 'none', value: '' },
+        unit: '',
+        code: '',
       },
       {
         id: 'item-3',
@@ -54,6 +58,8 @@ export function createSampleInvoice(overrides: Partial<Invoice> = {}): Invoice {
         unitPrice: '150',
         taxRate: '8.875',
         discount: { type: 'percent', value: '10' },
+        unit: '',
+        code: '',
       },
     ],
     discount: { type: 'percent', value: '10' },
@@ -63,6 +69,14 @@ export function createSampleInvoice(overrides: Partial<Invoice> = {}): Invoice {
     title: 'Invoice',
     taxIdLabel: 'EIN',
     amountInWords: false,
+    country: 'US',
+    poNumber: '',
+    supplyDate: '',
+    dueMode: 'date',
+    paymentTermsDays: 14,
+    payment: null,
+    signed: false,
+    showLineTax: false,
     ...overrides,
   }
 }

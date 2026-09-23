@@ -2,13 +2,14 @@ import { ArrowLeft, ArrowRight, Sparkles } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { CraneMark } from '../../components/brand/CraneMark'
 import { Button } from '../../components/ui/Button'
+import { countrySettings, findCountry, guessCountry } from '../../domain/countries'
 import { businessIssues } from '../../domain/records'
 import { cn } from '../../lib/cn'
 import { finishOnboarding, loadSampleData } from '../../storage/onboarding'
 import { requestPersistentStorage } from '../../storage/persistence'
 import { useProfileStore, useSettingsStore } from '../../storage/stores'
 import { BusinessDetailsForm } from '../business/BusinessDetailsForm'
-import { PaymentDetailsForm } from '../business/PaymentDetailsForm'
+import { DefaultPaymentDetailsForm } from '../business/PaymentDetailsForm'
 import { CountryField } from '../settings/CountryField'
 import { InvoiceDefaultsForm } from '../settings/InvoiceDefaultsForm'
 
@@ -39,6 +40,16 @@ export function OnboardingWizard() {
 
   // Move focus to each step's heading so keyboard and screen reader users start at the top.
   useEffect(() => heading.current?.focus(), [step])
+
+  // Start from the country this device seems to be in; the user can change it.
+  useEffect(() => {
+    const settings = useSettingsStore.getState()
+    if (settings.country) return
+    const guess = findCountry(
+      guessCountry(Intl.DateTimeFormat().resolvedOptions().timeZone, navigator.languages ?? []),
+    )
+    if (guess) settings.updateSettings(countrySettings(guess))
+  }, [])
 
   function finish() {
     finishOnboarding()
@@ -127,7 +138,7 @@ export function OnboardingWizard() {
               )}
               {step === 1 && <BusinessDetailsForm showRequired={showRequired} />}
               {step === 2 && <InvoiceDefaultsForm showCountry={false} />}
-              {step === 3 && <PaymentDetailsForm />}
+              {step === 3 && <DefaultPaymentDetailsForm />}
             </div>
           </div>
 

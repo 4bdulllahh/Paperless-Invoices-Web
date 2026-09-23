@@ -14,13 +14,14 @@ export function useDownloadInvoice() {
   const [state, setState] = useState<DownloadState>({ phase: 'idle' })
   const busy = useRef(false)
 
-  const download = useCallback(async () => {
+  /** Download the draft; `acceptWarnings` goes past legal warnings ("Download anyway"). */
+  const download = useCallback(async (acceptWarnings = false) => {
     // A second click while the PDF is being made must not save or number it twice.
     if (busy.current) return
     busy.current = true
     setState({ phase: 'working' })
     try {
-      const result = await downloadDraft()
+      const result = await downloadDraft({ acceptWarnings })
       if (result.ok) setState({ phase: 'done', fileName: result.fileName })
       else if (result.issues.length > 0) setState({ phase: 'issues', issues: result.issues })
       else setState({ phase: 'idle' })

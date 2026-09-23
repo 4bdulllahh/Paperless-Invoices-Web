@@ -20,6 +20,8 @@ export function useLivePdfPreview(
 ) {
   const invoice = useDraftStore((state) => state.invoice)
   const logo = useLogoStore((state) => state.logo)
+  const signature = useLogoStore((state) => state.signature)
+  const stamp = useLogoStore((state) => state.stamp)
   const logoReady = useHydrated(useLogoStore)
   const payment = useProfileStore((state) => state.payment)
   const [pages, setPages] = useState<PreviewPage[] | null>(null)
@@ -41,7 +43,10 @@ export function useLivePdfPreview(
       setStatus((current) => (current === 'loading' ? 'loading' : 'updating'))
       try {
         const { renderPreview } = await import('../../services/pdf')
-        const next = await renderPreview(buildTemplateProps(invoice, logo, payment), resolution)
+        const next = await renderPreview(
+          buildTemplateProps(invoice, { logo, payment, signature, stamp }),
+          resolution,
+        )
         if (request !== latestRequest.current) {
           next.forEach((page) => URL.revokeObjectURL(page.url))
           return
@@ -57,7 +62,7 @@ export function useLivePdfPreview(
       }
     }, delay)
     return () => clearTimeout(timer)
-  }, [invoice, logo, logoReady, payment, attempt, resolution])
+  }, [invoice, logo, signature, stamp, logoReady, payment, attempt, resolution])
 
   // Load the PDF engine shortly after start-up, even before there's an invoice to draw (a new
   // visitor is still in the setup wizard), so the first preview doesn't wait on the network.

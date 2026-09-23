@@ -6,6 +6,7 @@ import {
   localeOptions,
   paymentTermsLabel,
   paymentTermsOptions,
+  paymentTermsText,
 } from './options'
 
 describe('currencyOptions', () => {
@@ -57,24 +58,31 @@ describe('formatSample', () => {
 
 describe('payment terms', () => {
   it('labels terms in plain language', () => {
-    expect(paymentTermsLabel(0)).toBe('Due on receipt')
+    expect(paymentTermsLabel(0)).toBe('On delivery')
     expect(paymentTermsLabel(30)).toBe('Within 30 days (Net 30)')
+  })
+
+  it('prints terms the way invoices say them', () => {
+    expect(paymentTermsText(0)).toBe('On delivery')
+    expect(paymentTermsText(1)).toBe('Net 1 day')
+    expect(paymentTermsText(75)).toBe('Net 75 days')
   })
 
   it('keeps a custom saved value in the list, in order', () => {
     expect(paymentTermsOptions(14).map((o) => o.value)).toEqual([
       '0',
-      '7',
       '14',
       '15',
       '30',
       '45',
       '60',
+      '75',
       '90',
     ])
+    expect(paymentTermsOptions(30)).toHaveLength(7)
     expect(paymentTermsOptions(21).map((o) => o.value)).toContain('21')
     expect(paymentTermsOptions(21).map((o) => Number(o.value))).toEqual([
-      0, 7, 14, 15, 21, 30, 45, 60, 90,
+      0, 15, 21, 30, 45, 60, 75, 90,
     ])
   })
 })

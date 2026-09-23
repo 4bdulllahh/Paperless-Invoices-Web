@@ -8,10 +8,26 @@ type PartyFieldsProps = {
   /** Replaces the plain name field, e.g. with the saved-client combobox. */
   nameField?: ReactNode
   namePlaceholder: string
+  /** What the tax number is called where the business is, e.g. "TRN" or "VAT no.". */
+  taxId: {
+    label: string
+    /** The law there requires it, so it isn't marked optional. */
+    required?: boolean
+    /** A number in the right format, for the placeholder. */
+    example?: string
+    /** Why the typed number looks wrong. */
+    issue?: string
+  }
 }
 
 /** Name, contact details and address for either side of the invoice. */
-export function PartyFields({ party, onChange, nameField, namePlaceholder }: PartyFieldsProps) {
+export function PartyFields({
+  party,
+  onChange,
+  nameField,
+  namePlaceholder,
+  taxId,
+}: PartyFieldsProps) {
   return (
     <div className="flex flex-col gap-3">
       {nameField ?? (
@@ -46,8 +62,14 @@ export function PartyFields({ party, onChange, nameField, namePlaceholder }: Par
         onChange={(e) => onChange({ address: e.target.value })}
       />
       <TextField
-        label="Tax ID"
-        optional
+        label={taxId.label}
+        optional={!taxId.required}
+        required={taxId.required}
+        placeholder={taxId.example}
+        autoComplete="off"
+        spellCheck={false}
+        hint={`Just the number, without “${taxId.label}” in front.`}
+        error={taxId.issue}
         value={party.taxId}
         onChange={(e) => onChange({ taxId: e.target.value })}
       />

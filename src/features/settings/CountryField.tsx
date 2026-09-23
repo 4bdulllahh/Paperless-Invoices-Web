@@ -50,7 +50,8 @@ export function CountryField({ error, hint }: { error?: string; hint?: string })
                 ? `${preset.taxLabel}${preset.taxRate ? ` ${preset.taxRate}%` : ''}`
                 : 'no sales tax',
               `tax number shown as “${preset.taxIdLabel}”`,
-              preset.title === 'Tax invoice' && 'titled “Tax invoice”',
+              preset.title === 'Tax Invoice' && 'titled “Tax Invoice”',
+              preset.lineTax && `${preset.taxLabel} shown on every line`,
               preset.amountInWords && 'total in words',
             ]
               .filter(Boolean)

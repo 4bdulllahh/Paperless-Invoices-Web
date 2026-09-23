@@ -12,6 +12,8 @@ function item(overrides: Partial<LineItem> = {}): LineItem {
     unitPrice: '0',
     taxRate: '',
     discount: { type: 'none', value: '' },
+    unit: '',
+    code: '',
     ...overrides,
   }
 }
@@ -23,6 +25,7 @@ function totals(items: LineItem[], overrides: Partial<TotalsInput> = {}) {
     items,
     discount: { type: 'none', value: '' },
     amountPaid: '',
+    showLineTax: false,
     ...overrides,
   })
 }
@@ -226,6 +229,61 @@ describe('calculateTotals', () => {
       total: 424776,
       amountPaid: 100000,
       balanceDue: 324776,
+    })
+  })
+
+  describe('tax on each line', () => {
+    const tenCents = () => [
+      item({ unitPrice: '0.10', taxRate: '5' }),
+      item({ unitPrice: '0.10', taxRate: '5' }),
+    ]
+
+    it('rounds each line’s tax so the printed lines add up to the total', () => {
+      // Together: 5% of 0.20 is 0.01. Line by line: 5% of 0.10 rounds up to 0.01, twice.
+      expect(totals(tenCents()).taxTotal).toBe(1)
+      const perLine = totals(tenCents(), { showLineTax: true })
+      expect(perLine.lines.map((l) => [l.tax, l.totalWithTax])).toEqual([
+        [1, 11],
+        [1, 11],
+      ])
+      expect(perLine).toMatchObject({ taxTotal: 2, total: 22, afterDiscount: 20 })
+      expect(perLine.taxes).toEqual([{ taxRatePpm: 50000, base: 20, tax: 2 }])
+    })
+
+    it('matches a real UAE tax invoice', () => {
+      const lines = [
+        ['54', '17'],
+        ['32', '17'],
+        ['68', '37'],
+        ['8', '17'],
+        ['22', '17'],
+        ['11', '37'],
+        ['6', '26'],
+        ['8', '37'],
+        ['4', '26'],
+        ['4', '17'],
+        ['16', '17'],
+        ['5', '37'],
+        ['6', '26'],
+      ].map(([quantity, unitPrice]) => item({ quantity, unitPrice, taxRate: '5' }))
+      const result = totals(lines, { currency: 'AED', showLineTax: true })
+      expect(result).toMatchObject({ afterDiscount: 613200, taxTotal: 30660, total: 643860 })
+      expect(result.lines[2]).toMatchObject({ net: 251600, tax: 12580, totalWithTax: 264180 })
+    })
+
+    it('extracts tax line by line from tax-inclusive prices', () => {
+      const result = totals([item({ unitPrice: '100', taxRate: '5' })], {
+        taxMode: 'inclusive',
+        showLineTax: true,
+      })
+      expect(result.lines[0]).toMatchObject({ tax: 476, totalWithTax: 10000 })
+      expect(result.taxes).toEqual([{ taxRatePpm: 50000, base: 9524, tax: 476 }])
+    })
+
+    it('shares a rate’s tax across its lines when tax isn’t shown per line', () => {
+      const result = totals([...tenCents(), item({ unitPrice: '1' })])
+      expect(result.lines.map((l) => l.tax)).toEqual([1, 0, 0])
+      expect(result.lines[2].totalWithTax).toBe(100)
     })
   })
 })

@@ -25,6 +25,10 @@ export type LineTotals = {
   taxable: number
   /** Tax rate in parts per million: 20% is 200000. */
   taxRatePpm: number
+  /** This line's tax. With tax per line it's the line's own; otherwise its share of its rate's. */
+  tax: number
+  /** What the line comes to with tax: taxable plus tax (tax-inclusive: taxable itself). */
+  totalWithTax: number
 }
 
 export type TaxBreakdown = {
@@ -41,6 +45,8 @@ export type InvoiceTotals = {
   /** Sum of line amounts, after line discounts. */
   subtotal: number
   invoiceDiscount: number
+  /** Subtotal minus the invoice discount: the total before tax (tax-inclusive: with tax). */
+  afterDiscount: number
   /** One entry per non-zero tax rate, in order of first use. */
   taxes: TaxBreakdown[]
   taxTotal: number
@@ -52,7 +58,7 @@ export type InvoiceTotals = {
 
 export type TotalsInput = Pick<
   Invoice,
-  'currency' | 'taxMode' | 'items' | 'discount' | 'amountPaid'
+  'currency' | 'taxMode' | 'items' | 'discount' | 'amountPaid' | 'showLineTax'
 >
 
 /**
@@ -61,8 +67,9 @@ export type TotalsInput = Pick<
  * 1. Line: quantity × unit price, rounded to the currency's minor unit, minus the line discount.
  * 2. Invoice discount: applied to the subtotal before tax and split across lines in proportion
  *    to their amounts, so each tax rate gets the right base.
- * 3. Tax: calculated once per rate on the combined base (not per line), then rounded.
- *    Exclusive mode adds it on top; inclusive mode extracts it from the amount.
+ * 3. Tax: calculated once per rate on the combined base, then rounded. Invoices that print tax
+ *    on every line (showLineTax) round each line's tax instead and add those up, so the printed
+ *    lines match the totals. Exclusive mode adds tax on top; inclusive mode extracts it.
  *
  * Rounding is half away from zero at each of those steps. Invalid or half-typed numbers
  * count as zero, so a draft always has totals.
@@ -107,17 +114,36 @@ export function calculateTotals(input: TotalsInput): InvoiceTotals {
   )
   const taxable = lines.map((line, i) => line.net - shares[i])
 
-  const baseByRate = new Map<bigint, bigint>()
+  const inclusive = input.taxMode === 'inclusive'
+  /** Tax on an amount: [base before tax, tax]. */
+  const taxOn = (amount: bigint, ppm: bigint): [bigint, bigint] => {
+    if (!inclusive) return [amount, divRound(amount * ppm, PPM)]
+    const base = divRound(amount * PPM, PPM + ppm)
+    return [base, amount - base]
+  }
+
+  const lineTax: bigint[] = lines.map(() => 0n)
+  const byRate = new Map<bigint, number[]>()
   lines.forEach((line, i) => {
     if (line.taxRatePpm === 0n) return
-    baseByRate.set(line.taxRatePpm, (baseByRate.get(line.taxRatePpm) ?? 0n) + taxable[i])
+    byRate.set(line.taxRatePpm, [...(byRate.get(line.taxRatePpm) ?? []), i])
   })
-
-  const inclusive = input.taxMode === 'inclusive'
-  const taxes = [...baseByRate].map(([ppm, amount]) => {
-    if (!inclusive) return { ppm, base: amount, tax: divRound(amount * ppm, PPM) }
-    const base = divRound(amount * PPM, PPM + ppm)
-    return { ppm, base, tax: amount - base }
+  const taxes = [...byRate].map(([ppm, indexes]) => {
+    if (input.showLineTax) {
+      let base = 0n
+      for (const i of indexes) {
+        const [lineBase, tax] = taxOn(taxable[i], ppm)
+        base += lineBase
+        lineTax[i] = tax
+      }
+      return { ppm, base, tax: sum(indexes.map((i) => lineTax[i])) }
+    }
+    const [base, tax] = taxOn(sum(indexes.map((i) => taxable[i])), ppm)
+    allocate(
+      tax,
+      indexes.map((i) => taxable[i]),
+    ).forEach((share, k) => (lineTax[indexes[k]] = share))
+    return { ppm, base, tax }
   })
 
   const afterDiscount = subtotal - invoiceDiscount
@@ -135,9 +161,12 @@ export function calculateTotals(input: TotalsInput): InvoiceTotals {
       invoiceDiscountShare: Number(shares[i]),
       taxable: Number(taxable[i]),
       taxRatePpm: Number(line.taxRatePpm),
+      tax: Number(lineTax[i]),
+      totalWithTax: Number(inclusive ? taxable[i] : taxable[i] + lineTax[i]),
     })),
     subtotal: Number(subtotal),
     invoiceDiscount: Number(invoiceDiscount),
+    afterDiscount: Number(afterDiscount),
     taxes: taxes.map((t) => ({
       taxRatePpm: Number(t.ppm),
       base: Number(t.base),

@@ -167,24 +167,24 @@ describe('EditorPane: bill to', () => {
 })
 
 describe('EditorPane: invoice settings', () => {
-  it('applies an invoice discount and amount already paid', () => {
+  it('applies an invoice discount and advance payments', () => {
     renderEditor()
     type(within(item(1)).getByLabelText('Unit price'), '100')
     fireEvent.click(screen.getByRole('radio', { name: 'Percent' }))
     type(screen.getByLabelText('Percent off'), '10')
-    type(screen.getByLabelText(/Already paid/), '40')
+    type(screen.getByLabelText(/Advance payments/), '40')
     expect(balance()).toHaveTextContent('$50.00')
 
     fireEvent.click(screen.getByRole('button', { name: /Balance due/ }))
     expect(screen.getByText('Discount (10%)')).toBeInTheDocument()
-    expect(screen.getByText('Amount paid')).toBeInTheDocument()
+    expect(screen.getByText('Advance payments', { selector: 'dt' })).toBeInTheDocument()
   })
 
   it('moves the due date with the issue date, keeping the payment terms', () => {
     renderEditor()
-    expect(draft().dueDate).toBe('2026-10-07')
+    expect(draft().dueDate).toBe('2026-10-23')
     type(screen.getByLabelText('Issue date'), '2026-10-01')
-    expect(draft()).toMatchObject({ issueDate: '2026-10-01', dueDate: '2026-10-15' })
+    expect(draft()).toMatchObject({ issueDate: '2026-10-01', dueDate: '2026-10-31' })
 
     type(screen.getByLabelText('Issue date'), '')
     expect(draft().issueDate).toBe('2026-10-01')
@@ -193,40 +193,169 @@ describe('EditorPane: invoice settings', () => {
     expect(screen.getByText('The due date is before the issue date.')).toBeInTheDocument()
   })
 
-  it('switches tax mode and currency', () => {
+  it('prints payment terms instead of a due date when asked', () => {
     renderEditor()
-    fireEvent.click(screen.getByRole('radio', { name: 'Tax included' }))
-    fireEvent.change(screen.getByLabelText('Currency'), { target: { value: 'EUR' } })
-    expect(draft()).toMatchObject({ taxMode: 'inclusive', currency: 'EUR' })
+    fireEvent.click(screen.getByRole('radio', { name: 'Payment terms' }))
+    expect(draft()).toMatchObject({ dueMode: 'terms', dueDate: '2026-10-23' })
+    fireEvent.change(screen.getByLabelText('Payment terms'), { target: { value: '75' } })
+    expect(draft()).toMatchObject({ paymentTermsDays: 75, dueDate: '2026-12-07' })
+    fireEvent.change(screen.getByLabelText('Payment terms'), { target: { value: '0' } })
+    expect(screen.getByRole('option', { name: 'On delivery' })).toBeInTheDocument()
+    expect(draft().dueDate).toBe('2026-09-23')
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Due date' }))
+    expect(draft().dueMode).toBe('date')
+    expect(screen.getByLabelText('Due date')).toHaveValue('2026-09-23')
   })
 
-  it('opens the profile from the From and Payment sections', () => {
+  it('takes a purchase order, a date of supply and a currency', () => {
+    renderEditor()
+    type(screen.getByLabelText(/Purchase order \(PO\) number/), 'PO-77')
+    type(screen.getByLabelText(/Date of supply/), '2026-09-20')
+    fireEvent.change(screen.getByLabelText('Currency'), { target: { value: 'EUR' } })
+    expect(draft()).toMatchObject({ poNumber: 'PO-77', supplyDate: '2026-09-20', currency: 'EUR' })
+    type(screen.getByLabelText(/Date of supply/), '')
+    expect(draft().supplyDate).toBe('')
+  })
+
+  it('calls it an LPO in the Gulf', () => {
+    act(() => useDraftStore.getState().updateInvoice((inv) => ({ ...inv, country: 'AE' })))
+    renderEditor()
+    expect(screen.getByLabelText(/LPO number/)).toBeInTheDocument()
+  })
+
+  it('opens the profile from the From section', () => {
     const { onEditProfile } = renderEditor()
     fireEvent.click(screen.getByRole('button', { name: 'Edit profile' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Add payment details' }))
-    expect(onEditProfile).toHaveBeenCalledTimes(2)
+    expect(onEditProfile).toHaveBeenCalledTimes(1)
   })
 })
 
-describe('EditorPane: payment QR code', () => {
-  const qrSummary = () => screen.getByText('QR code').nextElementSibling!
-
-  it('says what the QR code on this invoice does', () => {
-    useProfileStore.getState().updateBusiness({ name: 'Acme Studio' })
-    useProfileStore.getState().updatePayment({ link: 'https://pay.example.com/acme' })
-    useDraftStore.getState().startNewInvoice('2026-09-23')
+describe('EditorPane: tax included and grand totals', () => {
+  function priced(price: string, rate = '5') {
     renderEditor()
-    type(within(item(1)).getByLabelText('Unit price'), '100')
-    expect(qrSummary()).toHaveTextContent('Scan to pay onlineOpens pay.example.com')
-    expect(screen.getByRole('button', { name: 'Edit payment details' })).toBeInTheDocument()
+    type(within(item(1)).getByLabelText('Unit price'), price)
+    type(within(item(1)).getByLabelText('Tax %'), rate)
+  }
+
+  it('lowers the rates so the tax fits inside the total, and can undo it', () => {
+    priced('100')
+    fireEvent.click(screen.getByRole('button', { name: 'Include tax in $100.00' }))
+    expect(draft().items[0].unitPrice).toBe('95.24')
+    expect(balance()).toHaveTextContent('$100.00')
+    expect(screen.getByRole('status')).toHaveTextContent('grand total is $100.00')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(draft().items[0].unitPrice).toBe('100')
+    expect(balance()).toHaveTextContent('$105.00')
   })
 
-  it('explains why there isn’t one', () => {
+  it('fits the rates to a grand total you type', () => {
+    priced('100')
+    type(screen.getByLabelText(/Grand total you want/), '200')
+    fireEvent.click(screen.getByRole('button', { name: 'Fit rates' }))
+    expect(draft().items[0].unitPrice).toBe('190.48')
+    expect(balance()).toHaveTextContent('$200.00')
+    expect(screen.getByRole('status')).toHaveTextContent('Rates raised')
+
+    type(screen.getByLabelText(/Grand total you want/), '0.1')
+    fireEvent.keyDown(screen.getByLabelText(/Grand total you want/), { key: 'Enter' })
+    expect(screen.getByRole('status')).toHaveTextContent('Rates lowered')
+    expect(screen.getByRole('status')).toHaveTextContent('as close as prices with 2 decimals')
+  })
+
+  it('needs a tax rate before tax can be included', () => {
+    priced('100', '')
+    expect(screen.getByRole('button', { name: 'Include tax in $100.00' })).toBeDisabled()
+  })
+
+  it('converts an invoice made with tax-inclusive prices', () => {
+    act(() => useDraftStore.getState().updateInvoice((inv) => ({ ...inv, taxMode: 'inclusive' })))
+    priced('105')
+    fireEvent.click(screen.getByRole('button', { name: 'Convert prices' }))
+    expect(draft()).toMatchObject({ taxMode: 'exclusive', items: [{ unitPrice: '100.00' }] })
+  })
+
+  it('shows the tax and total on each line when asked', () => {
+    priced('100')
+    fireEvent.click(screen.getByLabelText(/on each line/))
+    expect(draft().showLineTax).toBe(true)
+    expect(within(item(1)).getByText('$5.00')).toBeInTheDocument()
+    expect(within(item(1)).getByText('$105.00')).toBeInTheDocument()
+  })
+})
+
+describe('EditorPane: payment details', () => {
+  it('changes them for this invoice only, and says so', () => {
+    useProfileStore.getState().updatePayment({ bankName: 'Default Bank' })
+    renderEditor()
+    type(screen.getByLabelText(/Bank name/), 'Invoice Bank')
+    expect(draft().payment?.bankName).toBe('Invoice Bank')
+    expect(useProfileStore.getState().payment.bankName).toBe('Default Bank')
+    expect(screen.getByText(/You changed the payment details/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Got it' }))
+    expect(screen.queryByText(/You changed the payment details/)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Card' }))
+    expect(draft().payment?.methods).toEqual(['card'])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Use my defaults' }))
+    expect(draft().payment).toBeNull()
+    expect(screen.getByLabelText(/Bank name/)).toHaveValue('Default Bank')
+  })
+
+  it('can undo from the notice, and new invoices start from the defaults', () => {
+    renderEditor()
+    type(screen.getByLabelText(/Account number/), '123')
+    fireEvent.click(screen.getByRole('button', { name: 'Undo changes' }))
+    expect(draft().payment).toBeNull()
+
+    type(screen.getByLabelText(/Account number/), '456')
+    act(() => void useDraftStore.getState().startNewInvoice('2026-09-24'))
+    expect(draft().payment).toBeNull()
+  })
+
+  it('explains why there isn’t a QR code', () => {
     useProfileStore.getState().updatePayment({ qr: 'upi', upiId: 'acme@okhdfcbank' })
     renderEditor()
-    expect(qrSummary()).toHaveTextContent(/only added to invoices in Indian rupees/)
-    fireEvent.change(screen.getByLabelText('Currency'), { target: { value: 'INR' } })
-    expect(qrSummary()).toHaveTextContent(/Add your business name/)
+    expect(screen.getByText(/only added to invoices in Indian rupees/)).toBeInTheDocument()
+  })
+})
+
+describe('EditorPane: items and signing', () => {
+  it('saves a unit for each line', () => {
+    renderEditor()
+    type(within(item(1)).getByLabelText('Unit'), 'Sets')
+    expect(draft().items[0].unit).toBe('Sets')
+  })
+
+  it('asks for HSN/SAC codes on Indian invoices', () => {
+    act(() => useDraftStore.getState().updateInvoice((inv) => ({ ...inv, country: 'IN' })))
+    renderEditor()
+    type(within(item(1)).getByLabelText('HSN/SAC'), '998314')
+    expect(draft().items[0].code).toBe('998314')
+  })
+
+  it('labels tax numbers the way the country does, and checks them', () => {
+    act(() =>
+      useDraftStore
+        .getState()
+        .updateInvoice((inv) => ({ ...inv, country: 'AE', taxIdLabel: 'TRN' })),
+    )
+    renderEditor()
+    const [client, yours] = screen.getAllByLabelText(/^TRN/)
+    type(client, 'TRN100')
+    expect(screen.getByText('Enter just the number, without “TRN”.')).toBeInTheDocument()
+    expect(yours).toBeRequired()
+    expect(yours).toHaveAttribute('placeholder', '100123456700003')
+  })
+
+  it('signs the invoice', () => {
+    renderEditor()
+    fireEvent.click(screen.getByLabelText('Sign this invoice'))
+    expect(draft().signed).toBe(true)
+    expect(screen.getByText('Signature')).toBeInTheDocument()
+    expect(screen.getByText('Company stamp')).toBeInTheDocument()
   })
 })
 

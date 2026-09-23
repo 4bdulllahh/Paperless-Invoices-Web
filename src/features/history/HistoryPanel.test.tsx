@@ -26,9 +26,12 @@ const pdf = new Blob(['%PDF-1.7'], { type: 'application/pdf' })
 const issuedPayment = { ...emptyPaymentDetails(), instructions: 'Old bank account' }
 
 function issue(overrides: Partial<Invoice>) {
-  useHistoryStore
-    .getState()
-    .recordInvoice(createSampleInvoice(overrides), { payment: issuedPayment, logo: null })
+  useHistoryStore.getState().recordInvoice(createSampleInvoice(overrides), {
+    payment: issuedPayment,
+    logo: null,
+    signature: null,
+    stamp: null,
+  })
 }
 
 beforeEach(async () => {

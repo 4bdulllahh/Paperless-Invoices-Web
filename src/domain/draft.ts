@@ -29,6 +29,8 @@ export function createLineItem(id: string, taxRate = ''): LineItem {
     unitPrice: '',
     taxRate,
     discount: { type: 'none', value: '' },
+    unit: '',
+    code: '',
   }
 }
 
@@ -53,7 +55,8 @@ export function createInvoiceDraft({ id, lineId, today, settings, business }: Dr
     dueDate: addDays(today, settings.paymentTermsDays),
     currency: settings.currency,
     locale: settings.locale,
-    taxMode: settings.taxMode,
+    // Prices are always entered before tax; "tax included" now lowers them (see pricing.ts).
+    taxMode: 'exclusive',
     taxLabel: settings.taxLabel,
     from: { ...business },
     to: emptyParty(),
@@ -65,6 +68,14 @@ export function createInvoiceDraft({ id, lineId, today, settings, business }: Dr
     title: settings.documentTitle,
     taxIdLabel: settings.taxIdLabel,
     amountInWords: settings.amountInWords,
+    country: settings.country,
+    poNumber: '',
+    supplyDate: '',
+    dueMode: settings.dueMode,
+    paymentTermsDays: settings.paymentTermsDays,
+    payment: null,
+    signed: settings.signInvoices,
+    showLineTax: settings.showLineTax,
   }
 }
 
@@ -84,12 +95,16 @@ export function followDefaults(invoice: Invoice, before: Settings, after: Settin
   }
   follow('currency', before.currency, after.currency)
   follow('locale', before.locale, after.locale)
-  follow('taxMode', before.taxMode, after.taxMode)
   follow('taxLabel', before.taxLabel, after.taxLabel)
   follow('templateId', before.templateId, after.templateId)
   follow('title', before.documentTitle, after.documentTitle)
   follow('taxIdLabel', before.taxIdLabel, after.taxIdLabel)
   follow('amountInWords', before.amountInWords, after.amountInWords)
+  follow('country', before.country, after.country)
+  follow('dueMode', before.dueMode, after.dueMode)
+  follow('paymentTermsDays', before.paymentTermsDays, after.paymentTermsDays)
+  follow('signed', before.signInvoices, after.signInvoices)
+  follow('showLineTax', before.showLineTax, after.showLineTax)
   follow(
     'dueDate',
     addDays(invoice.issueDate, before.paymentTermsDays),
@@ -120,7 +135,8 @@ type DuplicateInput = Omit<DraftInput, 'lineId'> & {
 
 /**
  * A new draft copied from an earlier invoice: same client, items, notes and terms, but the next
- * number, today's date, the current business details and nothing paid yet.
+ * number, today's date, the current business and payment details, no purchase order or supply
+ * date, and nothing paid yet.
  */
 export function duplicateInvoice({
   source,
@@ -140,5 +156,8 @@ export function duplicateInvoice({
     from: { ...business },
     items: copy.items.map((item) => ({ ...item, id: newLineId() })),
     amountPaid: '',
+    poNumber: '',
+    supplyDate: '',
+    payment: null,
   }
 }

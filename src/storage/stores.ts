@@ -20,6 +20,7 @@ import {
   type HistoryStatus,
   type Logo,
   type PaymentDetails,
+  type PrintAssets,
   type Settings,
 } from '../domain/records'
 import { invoiceSchema, type Invoice, type Party } from '../domain/schema'
@@ -85,21 +86,30 @@ export const useProfileStore = createPersistedStore(
   }),
 )
 
-/* Logo: a resized PNG. IndexedDB, because images are large. */
+/* Logo, signature and stamp: resized images. IndexedDB, because images are large. */
 
-type LogoData = { logo: Logo | null }
+type LogoData = { logo: Logo | null; signature: Logo | null; stamp: Logo | null }
+
+/** The images an invoice can carry besides its logo. */
+export type SignatureImage = 'signature' | 'stamp'
 
 export const useLogoStore = createPersistedStore(
   {
     name: 'paperless:logo',
     version: 1,
-    schema: z.object({ logo: logoSchema.nullable() }),
+    schema: z.object({
+      logo: logoSchema.nullable(),
+      // Added in 1.2.
+      signature: logoSchema.nullable().default(null),
+      stamp: logoSchema.nullable().default(null),
+    }),
     backend: idbBackend,
   },
-  { logo: null } as LogoData,
+  { logo: null, signature: null, stamp: null } as LogoData,
   (set) => ({
     setLogo: (logo: Logo) => set({ logo }),
     removeLogo: () => set({ logo: null }),
+    setImage: (kind: SignatureImage, image: Logo | null) => set({ [kind]: image }),
   }),
 )
 
@@ -112,7 +122,7 @@ export const initialSettings: Settings = {
   // Left for the user (or their country) to fill in.
   taxLabel: '',
   defaultTaxRate: '',
-  paymentTermsDays: 14,
+  paymentTermsDays: 30,
   numberPattern: DEFAULT_NUMBER_PATTERN,
   nextSequence: 1,
   templateId: 'modern',
@@ -120,10 +130,28 @@ export const initialSettings: Settings = {
   documentTitle: 'Invoice',
   taxIdLabel: 'Tax ID',
   amountInWords: false,
+  dueMode: 'date',
+  showLineTax: false,
+  signInvoices: false,
 }
 
+/** "Tax invoice" as saved before 1.2, when the second word wasn't capitalised. */
+const titleCase = (title: unknown) => (title === 'Tax invoice' ? 'Tax Invoice' : title)
+
 export const useSettingsStore = createPersistedStore(
-  { name: 'paperless:settings', version: 1, schema: settingsSchema, backend: localBackend },
+  {
+    name: 'paperless:settings',
+    version: 2,
+    schema: settingsSchema,
+    backend: localBackend,
+    migrations: {
+      // Version 2 writes "Tax Invoice" with a capital I.
+      2: (state) => {
+        const settings = state as { documentTitle?: unknown }
+        return { ...settings, documentTitle: titleCase(settings.documentTitle) }
+      },
+    },
+  },
   initialSettings,
   (set, get) => ({
     /**
@@ -157,9 +185,16 @@ type DraftData = { invoice: Invoice | null }
 export const useDraftStore = createPersistedStore(
   {
     name: 'paperless:draft',
-    version: 1,
+    version: 2,
     schema: z.object({ invoice: invoiceSchema.nullable() }),
     backend: localBackend,
+    migrations: {
+      // Version 2 writes "Tax Invoice" with a capital I.
+      2: (state) => {
+        const { invoice } = state as { invoice: { title?: unknown } | null }
+        return { invoice: invoice && { ...invoice, title: titleCase(invoice.title) } }
+      },
+    },
   },
   { invoice: null } as DraftData,
   (set) => ({
@@ -235,13 +270,22 @@ export const useClientsStore = createPersistedStore(
 
 type HistoryData = {
   entries: HistoryEntry[]
-  /** Logos the entries were printed with, by id. Each is stored once, however many use it. */
+  /**
+   * Logos, signatures and stamps the entries were printed with, by id. Each is stored once,
+   * however many use it.
+   */
   logos: Record<string, Logo>
 }
 
-/** Drop logos no entry uses any more. */
+/** Drop images no entry uses any more. */
 function usedLogos(logos: Record<string, Logo>, entries: HistoryEntry[]): Record<string, Logo> {
-  const used = new Set(entries.map((e) => e.issuedWith?.logoId))
+  const used = new Set(
+    entries.flatMap((e) => [
+      e.issuedWith?.logoId,
+      e.issuedWith?.signatureId,
+      e.issuedWith?.stampId,
+    ]),
+  )
   return Object.fromEntries(Object.entries(logos).filter(([id]) => used.has(id)))
 }
 
@@ -266,28 +310,31 @@ export const useHistoryStore = createPersistedStore(
   { entries: [], logos: {} } as HistoryData,
   (set) => ({
     /**
-     * Save a snapshot of a downloaded invoice, with the payment details and logo it was printed
-     * with. Downloading the same invoice again replaces it and keeps its paid status.
+     * Save a snapshot of a downloaded invoice, with the payment details and images it was
+     * printed with. Downloading the same invoice again replaces it and keeps its paid status.
      */
-    recordInvoice: (
-      invoice: Invoice,
-      { payment, logo }: { payment: PaymentDetails; logo: Logo | null },
-    ) =>
+    recordInvoice: (invoice: Invoice, { payment, logo, signature, stamp }: PrintAssets) =>
       set((state) => {
         const previous = state.entries.find((e) => e.invoice.id === invoice.id)
         let logos = state.logos
-        let logoId: string | null = null
-        if (logo) {
-          logoId = Object.keys(logos).find((id) => logos[id].dataUrl === logo.dataUrl) ?? null
-          if (!logoId) {
-            logoId = newId()
-            logos = { ...logos, [logoId]: { ...logo } }
+        const store = (image: Logo | null): string | null => {
+          if (!image) return null
+          let id = Object.keys(logos).find((key) => logos[key].dataUrl === image.dataUrl)
+          if (!id) {
+            id = newId()
+            logos = { ...logos, [id]: { ...image } }
           }
+          return id
         }
         const entry: HistoryEntry = {
           id: previous?.id ?? newId(),
           invoice: structuredClone(invoice),
-          issuedWith: { payment: { ...payment }, logoId },
+          issuedWith: {
+            payment: { ...payment },
+            logoId: store(logo),
+            signatureId: store(signature),
+            stampId: store(stamp),
+          },
           savedAt: new Date().toISOString(),
           status: previous?.status ?? 'unpaid',
           paidAt: previous?.paidAt ?? null,

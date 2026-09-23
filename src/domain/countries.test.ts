@@ -3,8 +3,10 @@ import {
   COUNTRY_PRESETS,
   countryName,
   countryOptions,
+  countryInSentence,
   countrySettings,
   findCountry,
+  guessCountry,
 } from './countries'
 import { settingsSchema } from './records'
 import { percentSchema } from './schema'
@@ -41,11 +43,20 @@ describe('country presets', () => {
       taxLabel: 'VAT',
       taxRate: '5',
       taxIdLabel: 'TRN',
-      title: 'Tax invoice',
+      title: 'Tax Invoice',
       amountInWords: true,
+      lineTax: true,
+      sign: true,
     })
-    expect(findCountry('IN')).toMatchObject({ taxIdLabel: 'GSTIN', title: 'Tax invoice' })
-    expect(findCountry('DE')).toMatchObject({ currency: 'EUR', taxRate: '19', title: 'Invoice' })
+    expect(findCountry('AE')?.note).toMatch(/1 July 2027/)
+    expect(findCountry('IN')).toMatchObject({ taxIdLabel: 'GSTIN', title: 'Tax Invoice' })
+    expect(findCountry('DE')).toMatchObject({
+      currency: 'EUR',
+      taxRate: '19',
+      title: 'Invoice',
+      lineTax: false,
+      sign: false,
+    })
     expect(findCountry('US')).toMatchObject({ taxLabel: 'Sales tax', taxRate: '' })
     expect(findCountry('US')?.note).toMatch(/state/)
     expect(findCountry('GB')?.note).toBeUndefined()
@@ -59,6 +70,8 @@ describe('country presets', () => {
     const labels = options.map((o) => o.label)
     expect(labels).toEqual([...labels].sort((a, b) => a.localeCompare(b)))
     expect(countryName('PK')).toBe('Pakistan')
+    expect(countryInSentence('AE')).toBe('the United Arab Emirates')
+    expect(countryInSentence('IN')).toBe('India')
   })
 
   it('turn into valid settings', () => {
@@ -70,8 +83,10 @@ describe('country presets', () => {
       taxLabel: 'VAT',
       defaultTaxRate: '15',
       taxIdLabel: 'VAT no.',
-      documentTitle: 'Tax invoice',
+      documentTitle: 'Tax Invoice',
       amountInWords: true,
+      showLineTax: true,
+      signInvoices: true,
     })
     const base = settingsSchema.parse({
       currency: 'USD',
@@ -87,5 +102,16 @@ describe('country presets', () => {
     for (const preset of COUNTRY_PRESETS) {
       expect(settingsSchema.safeParse({ ...base, ...countrySettings(preset) }).success).toBe(true)
     }
+  })
+
+  it('guess the country from the time zone, then the browser language', () => {
+    expect(guessCountry('Asia/Dubai', ['en-US'])).toBe('AE')
+    expect(guessCountry('Asia/Calcutta', [])).toBe('IN')
+    expect(guessCountry('Australia/Perth', [])).toBe('AU')
+    expect(guessCountry('Etc/UTC', ['en', 'ar-AE'])).toBe('AE')
+    expect(guessCountry('Etc/UTC', ['en-Latn-GB'])).toBe('GB')
+    // Regions without a preset, and languages without a region, are skipped.
+    expect(guessCountry('Etc/UTC', ['en', 'es-419', 'en-AQ', 'fr-CA'])).toBe('CA')
+    expect(guessCountry('Antarctica/Troll', ['en', 'en-AQ'])).toBe('')
   })
 })

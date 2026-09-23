@@ -73,7 +73,7 @@ Paperless is a free invoice generator that runs entirely in the browser. It's a 
 
 **First visit.** A setup wizard (`src/features/onboarding/OnboardingWizard.tsx`) covers the whole screen. Its four steps:
 
-1. **Country (required):** fills in currency, number format, tax name and rate, tax number label, title and amount in words.
+1. **Country (required):** pre-selected from the device's time zone (then its languages) by `guessCountry`. Fills in currency, number format, tax name and rate, tax number label, title, amount in words, tax on each line and signing.
 2. **Business details:** name and email are required.
 3. **Invoice defaults:** payment terms, numbering and so on.
 4. **Getting paid:** payment instructions, accepted methods and QR code.
@@ -86,15 +86,23 @@ Paperless is a free invoice generator that runs entirely in the browser. It's a 
 - **Nav rail** (desktop) or bottom tab bar (phone): Invoice, History, Clients, Business, Settings (`navigation.ts`).
 - **Main area:** on desktop, the current panel sits on the left and the live preview is always on the right. On a phone, Invoice has an Edit/Preview toggle and the other panels hide the preview.
 
+**Invoice sections, as of v1.2:**
+
+- **Items:** each line has Qty, Unit (with suggestions: Pcs, Sets, Hrs…), Unit price and Tax %. India adds an HSN/SAC field. With "tax on each line", each line also shows its tax and total.
+- **Tax & discounts:** tax name, "Show VAT on each line", a price box ("Include VAT in AED 100.00" and "Grand total you want" plus Fit rates, both undoable), the invoice discount and "Advance payments" (the `amountPaid` field).
+- **Title, number & dates:** title, number, issue date, date of supply, a Due date / Payment terms toggle (terms: on delivery, 15–90 days; the due date is still stored so History knows when it's overdue), LPO/PO number and currency.
+- **From:** the sender, the TRN (or local label) with a format check, and "Sign this invoice" with the signature and stamp.
+- **Payment:** the same form as Business, but changes are saved on the invoice itself (`invoice.payment`), with a notice. "Use my defaults" clears them; new and duplicated invoices start from the defaults.
+
 **Panels:**
 
-| Panel    | File                                      | What it does                                                                                                                                                                                                                                   |
-| -------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Invoice  | `src/features/editor/EditorPane.tsx`      | Collapsible sections in this order: Bill to (with saved-client combobox), Items, Tax & discounts, Title, number & dates, From, Payment, Notes. A totals footer shows the balance due, with an expandable breakdown. Every keystroke autosaves. |
-| History  | `src/features/history/HistoryPanel.tsx`   | Every downloaded invoice. Search, filter (All/Unpaid/Overdue/Paid), mark paid with a date, download again exactly as issued, duplicate as a new draft, delete.                                                                                 |
-| Clients  | `src/features/clients/ClientsPanel.tsx`   | Saved "Bill to" details, added with "Save to clients" in the editor. Search, put one on the current invoice, delete.                                                                                                                           |
-| Business | `src/features/business/BusinessPanel.tsx` | Business details, logo (resized to PNG), and payment details: instructions, accepted methods, payment link, and a QR code of type link, UPI or SEPA.                                                                                           |
-| Settings | `src/features/settings/SettingsPanel.tsx` | Country, currency, locale, tax, terms, numbering, title, template and words (`InvoiceDefaultsForm.tsx`). Also data (backup export/import, erase everything; `DataSection.tsx`), "Run setup again", and the version plus GitHub link.           |
+| Panel    | File                                      | What it does                                                                                                                                                                                                                                    |
+| -------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Invoice  | `src/features/editor/EditorPane.tsx`      | Collapsible sections in this order: Bill to (with saved-client combobox), Items, Tax & discounts, Title, number & dates, From, Payment, Notes. A totals footer shows the balance due, with an expandable breakdown. Every keystroke autosaves.  |
+| History  | `src/features/history/HistoryPanel.tsx`   | Every downloaded invoice. Search, filter (All/Unpaid/Overdue/Paid), mark paid with a date, download again exactly as issued, duplicate as a new draft, delete.                                                                                  |
+| Clients  | `src/features/clients/ClientsPanel.tsx`   | Saved "Bill to" details, added with "Save to clients" in the editor. Search, put one on the current invoice, delete.                                                                                                                            |
+| Business | `src/features/business/BusinessPanel.tsx` | Business details, logo, default payment details (accepted methods, bank name, account name and number, IBAN, SWIFT, other instructions, payment link, QR code of type link, UPI or SEPA), and the signature and stamp with "Sign new invoices". |
+| Settings | `src/features/settings/SettingsPanel.tsx` | Country, currency, locale, tax, terms, numbering, title, template and words (`InvoiceDefaultsForm.tsx`). Also data (backup export/import, erase everything; `DataSection.tsx`), "Run setup again", and the version plus GitHub link.            |
 
 **Preview pane** (`src/features/preview/PreviewPane.tsx`):
 
@@ -110,7 +118,9 @@ Paperless is a free invoice generator that runs entirely in the browser. It's a 
 - an invoice number not already used by another History entry
 - a sender name
 
-Any problems appear in a popover, each with a button that jumps to the section to fix. A successful download saves a snapshot to History. The first download of a draft also uses up the next invoice number. A "Start a new invoice" note follows.
+Then `complianceIssues` (`src/domain/compliance.ts`) lists what the law in the invoice's country asks for, as warnings (`legal: true`). Examples: the seller's TRN, the client's address and TRN, the title "Tax Invoice", VAT in AED, HSN/SAC codes and a signature in India.
+
+Any problems appear in a popover, each with a button that jumps to the section to fix. When only warnings remain, the popover is titled "Missing for a legal invoice" and offers **Download anyway**. A successful download saves a snapshot to History. The first download of a draft also uses up the next invoice number. A "Start a new invoice" note follows.
 
 **Other UI:**
 
@@ -146,22 +156,24 @@ src/
 
 **`src/domain/`** is where most feedback lands. It's all pure functions, it must stay at 100% test coverage (CI enforces this), and oxlint forbids `../` imports inside it.
 
-| File                                                                     | Holds                                                                                                                                                                                                       |
-| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schema.ts`                                                              | The invoice schema (`invoiceSchema`, `Party`, `LineItem`), `TEMPLATE_IDS`, and the decimal-string validators. Also sets `z.config({ jitless: true })` at the top; see the rules.                            |
-| `records.ts`                                                             | Everything else that's saved: business profile, payment details (`PAYMENT_METHODS`, `QR_METHODS`), logo, settings, client and history entry.                                                                |
-| `decimal.ts`, `money.ts`, `calc.ts`                                      | Exact BigInt maths on integer minor units (cents, fils…). `calculateTotals` handles line discounts, invoice discount, tax per rate, exclusive or inclusive tax and amount paid. Never use floats for money. |
-| `viewModel.ts`                                                           | `buildInvoiceViewModel(invoice)`: every string a template prints, already formatted (money, dates, tax rows, title, total in words). Templates never calculate.                                             |
-| `draft.ts`                                                               | `createInvoiceDraft`, `followDefaults` (the draft follows Settings changes), `duplicateInvoice`, `isPristineDraft`.                                                                                         |
-| `countries.ts`                                                           | 63 country presets and `countrySettings(preset)` → Settings patch.                                                                                                                                          |
-| `words.ts`                                                               | `numberToWords` and `amountInWords` (unit names for 37 currencies; lakh/crore; "only").                                                                                                                     |
-| `export.ts`                                                              | `exportIssues`, `claimsNextNumber`, `invoiceFileName`, `draftState`, `findNumberClash`.                                                                                                                     |
-| `history.ts`                                                             | `entryStatus` (overdue is computed), `filterHistory`, `countByFilter`, `issuedAssets`.                                                                                                                      |
-| `paymentQr.ts`                                                           | UPI and SEPA (EPC069-12) QR payloads, IBAN/BIC/UPI validation.                                                                                                                                              |
-| `numbering.ts`                                                           | Number patterns like `INV-{YYYY}-{####}`.                                                                                                                                                                   |
-| `options.ts`                                                             | Dropdown options: currencies, locales, `TEMPLATE_OPTIONS` (name and description), payment terms.                                                                                                            |
-| `format.ts`, `dates.ts`                                                  | Intl formatting and ISO date helpers.                                                                                                                                                                       |
-| `lineItems.ts`, `clients.ts`, `decimalInput.ts`, `equal.ts`, `sample.ts` | Smaller helpers and the sample data.                                                                                                                                                                        |
+| File                                                                     | Holds                                                                                                                                                                                                                                                                                             |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema.ts`                                                              | The invoice schema (`invoiceSchema`, `Party`, `LineItem`), `TEMPLATE_IDS`, the decimal-string validators, and the payment details schema (moved here in 1.2 because invoices can carry their own; `records.ts` re-exports it). Also sets `z.config({ jitless: true })` at the top; see the rules. |
+| `records.ts`                                                             | Everything else that's saved: business profile, payment details (`PAYMENT_METHODS`, `QR_METHODS`), logo, settings, client and history entry.                                                                                                                                                      |
+| `decimal.ts`, `money.ts`, `calc.ts`                                      | Exact BigInt maths on integer minor units (cents, fils…). `calculateTotals` handles line discounts, invoice discount, tax per rate, exclusive or inclusive tax and amount paid. Never use floats for money.                                                                                       |
+| `viewModel.ts`                                                           | `buildInvoiceViewModel(invoice)`: every string a template prints, already formatted (money, dates, tax rows, title, total in words). Templates never calculate.                                                                                                                                   |
+| `draft.ts`                                                               | `createInvoiceDraft`, `followDefaults` (the draft follows Settings changes), `duplicateInvoice`, `isPristineDraft`.                                                                                                                                                                               |
+| `countries.ts`                                                           | 63 country presets, `countrySettings(preset)` → Settings patch, `guessCountry` and `countryInSentence` ("the United Arab Emirates").                                                                                                                                                              |
+| `compliance.ts`                                                          | What each country's law asks an invoice to show (`RULES`), tax number formats (`taxIdIssue`, `taxIdRules`) and `complianceIssues`, the warnings shown before downloading. Sources are listed at the top.                                                                                          |
+| `pricing.ts`                                                             | `fitToTotal` and `includeTaxInPrices`: work unit prices back from a grand total. Scales, nudges, then searches small changes on the finest lines for an exact total.                                                                                                                              |
+| `words.ts`                                                               | `numberToWords` and `amountInWords` (unit names for 37 currencies; lakh/crore; "only").                                                                                                                                                                                                           |
+| `export.ts`                                                              | `exportIssues`, `claimsNextNumber`, `invoiceFileName`, `draftState`, `findNumberClash`.                                                                                                                                                                                                           |
+| `history.ts`                                                             | `entryStatus` (overdue is computed), `filterHistory`, `countByFilter`, `issuedAssets`.                                                                                                                                                                                                            |
+| `paymentQr.ts`                                                           | UPI and SEPA (EPC069-12) QR payloads, IBAN/BIC/UPI validation.                                                                                                                                                                                                                                    |
+| `numbering.ts`                                                           | Number patterns like `INV-{YYYY}-{####}`.                                                                                                                                                                                                                                                         |
+| `options.ts`                                                             | Dropdown options: currencies, locales, `TEMPLATE_OPTIONS` (name and description), payment terms.                                                                                                                                                                                                  |
+| `format.ts`, `dates.ts`                                                  | Intl formatting and ISO date helpers.                                                                                                                                                                                                                                                             |
+| `lineItems.ts`, `clients.ts`, `decimalInput.ts`, `equal.ts`, `sample.ts` | Smaller helpers and the sample data.                                                                                                                                                                                                                                                              |
 
 ## How data flows
 
@@ -172,8 +184,8 @@ Editor field ──update()──▶ useDraftStore (autosaved to localStorage)
                                 │
             useLivePdfPreview (350 ms debounce; waits for the logo to load)
                                 │
-     buildTemplateProps(invoice, logo, payment)      ← templates/props.ts
-        = buildInvoiceViewModel + payment QR
+     buildTemplateProps(invoice, { payment, logo, signature, stamp })   ← templates/props.ts
+        = buildInvoiceViewModel + payment QR; invoice.payment ?? the default payment
                                 │
      services/pdf.ts (lazy import) → pdf.worker.ts → react-pdf → PDF bytes
                                 │
@@ -188,7 +200,7 @@ Editor field ──update()──▶ useDraftStore (autosaved to localStorage)
 2. Run `exportIssues`, and stop if there are any.
 3. Render with **the same `buildTemplateProps`** as the preview, then save the file as `Invoice <number> - <client>.pdf`.
 4. `claimsNextNumber` decides whether this draft uses up the sequence.
-5. `recordInvoice` saves a snapshot with the payment details and logo it was printed with. `redownloadEntry` uses that snapshot later, so re-downloads never change.
+5. `recordInvoice` saves a snapshot with the payment details, logo, signature and stamp it was printed with. `redownloadEntry` uses that snapshot later, so re-downloads never change.
 
 **Settings changes reach the open draft.** `updateSettings` in `stores.ts` runs `followDefaults`: any draft field still equal to the old default takes the new one, and fields edited on the invoice itself stay put. Drafts already in History are left alone. This is what made the footer currency follow Settings in v1.1. If you add a setting that has a matching invoice field, add it to `followDefaults` too.
 
@@ -207,9 +219,9 @@ All stores are created by `createPersistedStore` (`src/storage/persisted.ts`). I
 | Store (`src/storage/stores.ts`) | Key                  | Backend      | Version | Contents                                                                                  |
 | ------------------------------- | -------------------- | ------------ | ------- | ----------------------------------------------------------------------------------------- |
 | `useProfileStore`               | `paperless:profile`  | localStorage | 3       | `business` (Party), `payment` (PaymentDetails), `onboardingComplete`                      |
-| `useLogoStore`                  | `paperless:logo`     | IndexedDB    | 1       | `logo` (PNG data URL and size) or null                                                    |
-| `useSettingsStore`              | `paperless:settings` | localStorage | 1       | Defaults for new invoices, `country`, `nextSequence`                                      |
-| `useDraftStore`                 | `paperless:draft`    | localStorage | 1       | `invoice`, the one being edited                                                           |
+| `useLogoStore`                  | `paperless:logo`     | IndexedDB    | 1       | `logo`, `signature`, `stamp` (PNG/JPEG data URL and size) or null                         |
+| `useSettingsStore`              | `paperless:settings` | localStorage | 2       | Defaults for new invoices, `country`, `nextSequence`                                      |
+| `useDraftStore`                 | `paperless:draft`    | localStorage | 2       | `invoice`, the one being edited                                                           |
 | `useClientsStore`               | `paperless:clients`  | IndexedDB    | 1       | `clients[]`                                                                               |
 | `useHistoryStore`               | `paperless:history`  | IndexedDB    | 2       | `entries[]` (invoice snapshot, `issuedWith`, status, paidAt) and `logos{}` (deduplicated) |
 
@@ -217,7 +229,8 @@ The theme is stored separately at `paperless:theme` (`useTheme.ts`, mirrored in 
 
 **Changing what's saved:**
 
-- **Adding a field:** give it a Zod `.default(...)` in the schema. Old saved data and old backups then load without a migration. v1.1 added `title`, `taxIdLabel`, `amountInWords`, `country`, `documentTitle`, `payment.methods` and others this way.
+- **Adding a field:** give it a Zod `.default(...)` in the schema. Old saved data and old backups then load without a migration. v1.1 added `title`, `taxIdLabel`, `amountInWords`, `country`, `documentTitle`, `payment.methods` and others this way. v1.2 added `poNumber`, `supplyDate`, `dueMode`, `paymentTermsDays`, `payment`, `signed`, `showLineTax` and `country` on the invoice, `unit` and `code` on lines, bank fields on payment details, and signature/stamp ids on History entries. Their defaults keep older invoices printing as they did (for example `showLineTax: false` keeps the old tax rounding).
+- **v1.2 migrations:** settings and draft went to version 2 to change a saved title of "Tax invoice" to "Tax Invoice".
 - **Renaming, removing or restructuring:** bump the store's `version` and add `migrations[newVersion]`, then add a test in `src/storage/stores.test.ts`.
 - **Backups:** backup files (`backup.ts`) include each store's version and are migrated on import. A change that loads old data correctly also loads old backups.
 - **Checking the schema:** users have real data on their devices. Never make the schema stricter without checking that old data still parses.
@@ -243,7 +256,7 @@ The theme is stored separately at `paperless:theme` (`useTheme.ts`, mirrored in 
 4. `src/templates/templates.test.tsx` renders every template, including long and edge-case invoices. Run it with `PDF_OUT` to look at the results (see [Checking your work](#checking-your-work)).
 5. react-pdf isn't the browser: it uses flexbox only and a limited set of CSS. It has no fonts other than the registered ones (`fonts.ts`). Check long names, many items (page breaks), no logo, a QR code, inclusive tax and amount in words.
 
-**Fix or add a country:** edit `ROWS` in `domain/countries.ts`. Use the `EU(...)` helper or `GULF` extras where they fit.
+**Fix or add a country:** edit `ROWS` in `domain/countries.ts`. Use the `EU(...)` helper or the `GULF` / `GULF_VAT` extras where they fit. The legal checks live in `RULES` in `domain/compliance.ts`: what's required (seller and buyer tax numbers, addresses, title, tax currency, signature, item codes) and the tax number's format.
 
 - The `locale` must be an English variant (`en-AE`, `en-150`, …). `countries.test.ts` fails if money or dates would print characters the PDF fonts lack.
 - Use `note` for legal warnings, e.g. mandatory e-invoicing.
@@ -258,13 +271,14 @@ The theme is stored separately at `paperless:theme` (`useTheme.ts`, mirrored in 
 
 **Tax and totals:**
 
-- The rules are in `domain/calc.ts`; the tests in `calc.test.ts` are the spec.
+- The rules are in `domain/calc.ts`; the tests in `calc.test.ts` are the spec. `showLineTax` switches tax rounding from per rate to per line.
+- "Tax included" and "Grand total you want" are in `domain/pricing.ts`. The editor always enters prices before tax now; `taxMode: 'inclusive'` only survives on older invoices, and the Tax section offers to convert them.
 - The README section "How totals are calculated" describes the rounding rules. Keep it in sync.
 
 **Payment:**
 
 - Methods (bank, card, cash, cheque) are set by `PAYMENT_METHODS` and `PAYMENT_METHOD_LABELS` in `records.ts`.
-- The chips are in `features/business/PaymentDetailsForm.tsx`.
+- The form is `features/business/PaymentDetailsForm.tsx`. It's controlled: `DefaultPaymentDetailsForm` edits the profile, and the editor's `PaymentSection` edits `invoice.payment`.
 - What prints is set by `PaymentAndNotes` in `templates/shared.tsx`.
 - QR codes are made in `domain/paymentQr.ts` and drawn by `templates/qr.ts`.
 
@@ -322,6 +336,7 @@ The theme is stored separately at `paperless:theme` (`useTheme.ts`, mirrored in 
 **Code and CI:**
 
 - **Keep domain and storage at 100% coverage.** CI runs `npm run test:coverage` with thresholds.
+- **Visually hidden inputs need a positioned parent.** An `sr-only` input inside a scrolling pane, with no `relative` ancestor, escapes the pane and makes the whole page scroll (v1.2 found this with the payment method chips on phones).
 - **Keep this file Prettier-formatted.** CI's `format:check` includes `handover.md`. Run `npx prettier --write handover.md`.
 - **Start-up JavaScript stays small** (about 134 KB gzipped). Heavy code (the PDF engine, pdf.js, QR, the non-editor panels) is loaded on demand. Don't import `services/pdf.ts` or `templates/*` statically from app code; use `import()`.
 
@@ -371,13 +386,14 @@ Afterwards, stop it with `Get-NetTCPConnection -LocalPort 4173 | ForEach-Object 
 - **How to run:** run them from that folder. Each reads `URL` (default `http://localhost:4173`); set `URL=https://paperless-bay-zeta.vercel.app/` to check the live site.
 - **Scripts:**
 
-  | Script                           | What it checks                                                                                                                                                                                                             |
-  | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-  | `m11.mjs <outDir>`               | The v1.1 regression and the best starting point: first run with a country, currency following Settings, zoom, all six templates, download, phone layout, and axe accessibility scans. Prints `errors: []` when clean.      |
-  | `m10csp.mjs <outDir> <logo.png>` | Runs the app under the real CSP (no bypass) and collects every violation from the page and workers: preview, logo, download, backup export, service worker. Any PNG works as the logo, e.g. `public/apple-touch-icon.png`. |
-  | `m8.mjs <outDir>`                | Download flow and History.                                                                                                                                                                                                 |
-  | `m9.mjs <outDir> [distDir]`      | Offline, update prompt, axe on every panel in both themes, tab order.                                                                                                                                                      |
-  | `m10shots.mjs <outDir>`          | Captures the README screenshots. Convert them to `docs/screenshots/*.webp` with PIL at about 1600 px wide.                                                                                                                 |
+  | Script                           | What it checks                                                                                                                                                                                                                                                                                                                   |
+  | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `m12.mjs <outDir>`               | The v1.2 regression and the best starting point: a first run in Dubai (country guessed), TRN checks, VAT on each line, tax included and grand total, LPO and terms, payment changed on one invoice, a drawn signature, the legal warnings and Download anyway, phone layout, axe in both themes. Prints `errors: []` when clean. |
+  | `m11.mjs <outDir>`               | The v1.1 regression: first run with a country, currency following Settings, zoom, all six templates, download, phone layout, and axe accessibility scans. Pins a time zone with no preset, so the country starts empty.                                                                                                          |
+  | `m10csp.mjs <outDir> <logo.png>` | Runs the app under the real CSP (no bypass) and collects every violation from the page and workers: preview, logo, download, backup export, service worker. Any PNG works as the logo, e.g. `public/apple-touch-icon.png`.                                                                                                       |
+  | `m8.mjs <outDir>`                | Download flow and History.                                                                                                                                                                                                                                                                                                       |
+  | `m9.mjs <outDir> [distDir]`      | Offline, update prompt, axe on every panel in both themes, tab order.                                                                                                                                                                                                                                                            |
+  | `m10shots.mjs <outDir>`          | Captures the README screenshots. Convert them to `docs/screenshots/*.webp` with PIL at about 1600 px wide.                                                                                                                                                                                                                       |
 
 - **If that folder is gone** (Temp gets cleaned): make a new scratch folder, run `npm i playwright-core axe-core`, and write a fresh script modelled on the m11 description above.
   - Use `browser.newContext({ viewport, isMobile, hasTouch })` for phone sizes, since headless Edge windows can't go below 492 px.
@@ -435,6 +451,11 @@ Versioning: bug fixes bump the patch (1.1.1). A round of feature feedback bumps 
 **Limitations the user knows about:**
 
 - **Tax data:** the 63 country presets use 2026 standard rates. Reduced rates, US state sales tax and similar are left for the user to enter. Some countries require e-invoicing through government systems, and their notes say so. Paperless can't submit e-invoices.
+- **UAE e-invoicing:** mandatory through an accredited provider from 1 January 2027 (revenue of AED 50 million or more) and 1 July 2027 (everyone else). PDF tax invoices are fine until then. The AE country note says so.
+- **Legal checks** cover the fields each country's VAT law lists. They can't know whether a client is VAT-registered, so a missing client TRN is a warning, not a block. India's CGST/SGST/IGST split and place of supply aren't modelled.
+- **Exact grand totals:** with large quantities, a 0.01 change in a rate moves the total by a lot, so some totals can't be reached with 2-decimal rates. Paperless picks the closest and says so, and may move a rate or two a few fils off the even proportion to reach an exact total.
+- **Grouped items:** headings between groups of lines (like "Maintenance Staff" on the user's sample) aren't supported yet.
+- **Logo picker on Android:** "Can't load some photos" comes from Google Photos' cloud picker. On phones there's also a "From Files" button, which opens the file browser instead.
 - **Scripts:** PDFs print Latin scripts only (see above).
 - **QR codes:** they follow the UPI and EPC specs and decode with jsQR in tests and off the live preview. They haven't been tested with a real banking app.
 - **Previewing History:** the preview always shows the current draft, even on the History panel.
@@ -446,6 +467,8 @@ Versioning: bug fixes bump the patch (1.1.1). A round of feature feedback bumps 
 
 - Arabic, Urdu or CJK PDF fonts, loaded only when needed
 - previewing a History entry
+- section headings within the item list
+- a rounding line for totals that 2-decimal rates can't reach
 - showing balance due in History
 - recurring invoices or quotes
 - more currencies in `words.ts`
@@ -453,7 +476,7 @@ Versioning: bug fixes bump the patch (1.1.1). A round of feature feedback bumps 
 
 ## Current state
 
-- **Version:** v1.1.0 (commit `3ee8b3e`, tagged). Released and verified live on 2026-09-23. Nothing is in progress.
+- **Version:** v1.2.0. Released on 2026-09-24. Nothing is in progress.
 - **History of releases:**
   - Milestones 1–10 built the app; M10 was tagged v1.0.0.
   - v1.1.0 was the first round of user feedback:
@@ -465,9 +488,20 @@ Versioning: bug fixes bump the patch (1.1.1). A round of feature feedback bumps 
     - amount in words
     - preview zoom
     - the installable app window removed
+  - v1.2.0 was the second round, focused on legally correct UAE tax invoices:
+    - FTA layout: No., unit, qty, rate, amount, VAT rate, VAT and total with VAT on every line; total before VAT and grand total
+    - legal checks per country, with Download anyway
+    - tax number labels and format checks (TRN required in the UAE)
+    - "Tax Invoice" capitalised
+    - tax included and grand-total fitting instead of the old inclusive mode
+    - units, LPO/PO, date of supply, due date or payment terms (on delivery, 15–90 days), advance payments
+    - bank detail fields, and payment details editable per invoice
+    - signature and stamp (upload or draw)
+    - country guessed on first run
+    - logo picker fixes for Android
 - **Health:**
-  - all checks and CI pass; 496 tests; domain and storage coverage 100%
-  - start-up JS about 134 KB gzipped
-  - axe clean
-  - zero CSP violations live
+  - all checks and CI pass; 575 tests; domain and storage coverage 100%
+  - start-up JS about 146 KB gzipped (the payment and signature forms now live in the editor)
+  - axe clean in both themes
+  - zero CSP violations
 - **Waiting on:** the next round of feedback from the user.

@@ -4,14 +4,19 @@ import { clearAllData } from '../../storage/backup'
 import { useLogoStore, useProfileStore, useSettingsStore } from '../../storage/stores'
 import { BusinessPanel } from './BusinessPanel'
 
-const { prepareLogo } = vi.hoisted(() => ({ prepareLogo: vi.fn() }))
+const { prepareLogo, prepareSignature } = vi.hoisted(() => ({
+  prepareLogo: vi.fn(),
+  prepareSignature: vi.fn(),
+}))
 vi.mock('../../services/logo', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../services/logo')>()),
   prepareLogo,
+  prepareSignature,
 }))
 
 beforeEach(async () => {
   prepareLogo.mockReset()
+  prepareSignature.mockReset()
   await clearAllData()
 })
 
@@ -60,7 +65,7 @@ describe('BusinessPanel', () => {
     expect(screen.queryByLabelText('UPI ID')).not.toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('QR code on invoices'), { target: { value: 'upi' } })
-    expect(screen.getByText(/Your default currency is USD/)).toBeInTheDocument()
+    expect(screen.getByText(/Invoices in USD won’t have one/)).toBeInTheDocument()
     const upiId = screen.getByLabelText('UPI ID')
     fireEvent.change(upiId, { target: { value: 'acmestudio' } })
     expect(screen.getByText(/Enter a UPI ID like/)).toBeInTheDocument()
@@ -77,9 +82,10 @@ describe('BusinessPanel', () => {
     useSettingsStore.getState().updateSettings({ currency: 'EUR' })
     render(<BusinessPanel />)
     fireEvent.change(screen.getByLabelText('QR code on invoices'), { target: { value: 'sepa' } })
-    expect(screen.getByText(/Also called a GiroCode/).textContent).not.toMatch(/default currency/)
+    expect(screen.getByText(/Also called a GiroCode/).textContent).not.toMatch(/won’t have one/)
+    expect(screen.getByText(/Add your IBAN under Bank details/)).toBeInTheDocument()
 
-    const iban = screen.getByLabelText('IBAN')
+    const iban = screen.getByLabelText(/^IBAN/)
     fireEvent.change(iban, { target: { value: 'de89370400440532013001' } })
     expect(screen.getByText(/Check the IBAN/)).toBeInTheDocument()
     expect(useProfileStore.getState().payment.iban).toBe('')
@@ -139,5 +145,77 @@ describe('BusinessPanel', () => {
     await uploadLogo()
     expect(screen.getByText('That image couldn’t be used.')).toBeInTheDocument()
     expect(useLogoStore.getState().logo).toBeNull()
+  })
+
+  it('saves bank details as they are typed', () => {
+    render(<BusinessPanel />)
+    for (const [label, value] of [
+      [/Bank name/, 'Emirates NBD'],
+      [/Account name/, 'Acme Studio LLC'],
+      [/Account number/, '1012345678901'],
+    ] as const) {
+      fireEvent.change(screen.getByLabelText(label), { target: { value } })
+    }
+    expect(useProfileStore.getState().payment).toMatchObject({
+      bankName: 'Emirates NBD',
+      accountName: 'Acme Studio LLC',
+      accountNumber: '1012345678901',
+    })
+  })
+
+  it('asks for the tax number the country’s way', () => {
+    useSettingsStore.getState().updateSettings({ country: 'AE', taxIdLabel: 'TRN' })
+    render(<BusinessPanel />)
+    const trn = screen.getByLabelText(/^TRN/)
+    expect(trn).toBeRequired()
+    fireEvent.change(trn, { target: { value: 'TRN100218874400003' } })
+    expect(screen.getByText('Enter just the number, without “TRN”.')).toBeInTheDocument()
+    fireEvent.change(trn, { target: { value: '' } })
+    expect(screen.getByText('Invoices here must show your TRN.')).toBeInTheDocument()
+  })
+
+  it('adds a signature and stamp, and signs new invoices from then on', async () => {
+    const signature = { dataUrl: 'data:image/png;base64,SIGN', width: 300, height: 100 }
+    prepareSignature.mockResolvedValue(signature)
+    render(<BusinessPanel />)
+    const [signatureInput, stampInput] = screen
+      .getAllByLabelText(/Signature|Company stamp/)
+      .filter((el) => el instanceof HTMLInputElement && el.accept === 'image/*')
+    const file = new File(['x'], 'sign.png', { type: 'image/png' })
+    await act(async () => {
+      fireEvent.change(signatureInput, { target: { files: [file] } })
+    })
+    expect(useLogoStore.getState().signature).toEqual(signature)
+    expect(useSettingsStore.getState().signInvoices).toBe(true)
+    expect(screen.getByLabelText('Sign new invoices')).toBeChecked()
+
+    prepareSignature.mockRejectedValueOnce(new Error('broken'))
+    await act(async () => {
+      fireEvent.change(stampInput, { target: { files: [file] } })
+    })
+    expect(screen.getByText('That image couldn’t be used.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove signature' }))
+    expect(useLogoStore.getState().signature).toBeNull()
+    fireEvent.click(screen.getByLabelText('Sign new invoices'))
+    expect(useSettingsStore.getState().signInvoices).toBe(false)
+  })
+
+  it('opens a pad to draw a signature', () => {
+    render(<BusinessPanel />)
+    fireEvent.click(screen.getByRole('button', { name: 'Draw' }))
+    expect(screen.getByLabelText(/Signature pad/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Use signature' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByLabelText(/Signature pad/)).not.toBeInTheDocument()
+  })
+
+  it('offers Files as well as Photos on phones', () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({ matches: query === '(pointer: coarse)' })),
+    )
+    render(<BusinessPanel />)
+    expect(screen.getAllByRole('button', { name: 'From Files' })).toHaveLength(3)
   })
 })

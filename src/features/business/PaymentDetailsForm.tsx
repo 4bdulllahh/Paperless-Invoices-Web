@@ -1,6 +1,6 @@
 import { ChoiceChips } from '../../components/ui/Checkbox'
 import { CommitTextField } from '../../components/ui/CommitTextField'
-import { SelectField, TextAreaField } from '../../components/ui/Field'
+import { SelectField, TextAreaField, TextField } from '../../components/ui/Field'
 import { bicIssue, formatIban, ibanIssue, upiIdIssue } from '../../domain/paymentQr'
 import {
   PAYMENT_METHOD_LABELS,
@@ -25,11 +25,11 @@ const QR_LABELS: Record<QrMethod, string> = {
 }
 
 /** What the chosen QR code does, and when it won't appear. */
-function qrHint(payment: PaymentDetails, defaultCurrency: string): string {
-  const currencyNote = (currency: string) =>
-    defaultCurrency === currency
+function qrHint(payment: PaymentDetails, currency: string): string {
+  const currencyNote = (wanted: string) =>
+    currency === wanted
       ? ''
-      : ` Your default currency is ${defaultCurrency}, so switch the currency on invoices that should have one.`
+      : ` Invoices in ${currency} won’t have one, so switch the currency on those that should.`
   switch (payment.qr) {
     case 'link':
       return payment.link
@@ -44,12 +44,19 @@ function qrHint(payment: PaymentDetails, defaultCurrency: string): string {
   }
 }
 
-/** How clients pay. Saved as the user types; links and account details only once they're valid. */
-export function PaymentDetailsForm() {
-  const payment = useProfileStore((state) => state.payment)
-  const updatePayment = useProfileStore((state) => state.updatePayment)
-  const defaultCurrency = useSettingsStore((state) => state.currency)
+type PaymentDetailsFormProps = {
+  payment: PaymentDetails
+  onChange: (patch: Partial<PaymentDetails>) => void
+  /** The currency invoices are in, to say when a QR code won't appear. */
+  currency: string
+}
 
+/**
+ * How clients pay: the methods accepted, bank details, instructions, a link and a QR code.
+ * Saved as the user types; links and account numbers only once they're valid. Edits either the
+ * business defaults or one invoice's own details, depending on where it's used.
+ */
+export function PaymentDetailsForm({ payment, onChange, currency }: PaymentDetailsFormProps) {
   return (
     <div className="flex flex-col gap-4">
       <ChoiceChips
@@ -61,18 +68,71 @@ export function PaymentDetailsForm() {
         }
         options={METHOD_OPTIONS}
         selected={payment.methods}
-        onChange={(methods) => updatePayment({ methods })}
+        onChange={(methods) => onChange({ methods })}
       />
+
+      <fieldset className="flex flex-col gap-3">
+        <legend className="mb-1.5 text-sm font-medium text-fg-muted">Bank details</legend>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <TextField
+            label="Bank name"
+            optional
+            placeholder="Enter your bank’s name"
+            autoComplete="off"
+            value={payment.bankName}
+            onChange={(e) => onChange({ bankName: e.target.value })}
+          />
+          <TextField
+            label="Account name"
+            optional
+            placeholder="Name the account is held in"
+            autoComplete="off"
+            value={payment.accountName}
+            onChange={(e) => onChange({ accountName: e.target.value })}
+          />
+          <TextField
+            label="Account number"
+            optional
+            placeholder="Enter your account number"
+            autoComplete="off"
+            inputMode="numeric"
+            spellCheck={false}
+            value={payment.accountNumber}
+            onChange={(e) => onChange({ accountNumber: e.target.value })}
+          />
+          <CommitTextField
+            label="IBAN"
+            optional
+            placeholder="Enter your IBAN, e.g. AE07 0331 2345 6789 0123 456"
+            autoComplete="off"
+            autoCapitalize="characters"
+            spellCheck={false}
+            value={payment.iban}
+            validate={ibanIssue}
+            onCommit={(iban) => onChange({ iban: iban.trim() && formatIban(iban) })}
+          />
+          <CommitTextField
+            label="SWIFT / BIC"
+            optional
+            placeholder="e.g. EBILAEAD"
+            autoComplete="off"
+            autoCapitalize="characters"
+            spellCheck={false}
+            value={payment.bic}
+            validate={bicIssue}
+            onCommit={(bic) => onChange({ bic: bic.trim().toUpperCase() })}
+          />
+        </div>
+      </fieldset>
+
       <TextAreaField
-        label="Payment instructions"
+        label="Other payment instructions"
         optional
-        rows={4}
-        placeholder={
-          'Bank: Example Bank\nAccount name: Acme Studio LLC\nIBAN: GB00 0000 0000 0000 0000 00'
-        }
-        hint="Printed on every invoice, e.g. your bank details."
+        rows={3}
+        placeholder="e.g. Please quote the invoice number as the payment reference."
+        hint="Printed under your bank details."
         value={payment.instructions}
-        onChange={(e) => updatePayment({ instructions: e.target.value })}
+        onChange={(e) => onChange({ instructions: e.target.value })}
       />
       <CommitTextField
         label="Payment link"
@@ -83,13 +143,13 @@ export function PaymentDetailsForm() {
         hint="A PayPal, Stripe or Wise link, printed on invoices."
         value={payment.link}
         validate={paymentLinkIssue}
-        onCommit={(link) => updatePayment({ link: link.trim() })}
+        onCommit={(link) => onChange({ link: link.trim() })}
       />
       <SelectField
         label="QR code on invoices"
-        hint={qrHint(payment, defaultCurrency)}
+        hint={qrHint(payment, currency)}
         value={payment.qr}
-        onChange={(e) => updatePayment({ qr: e.target.value as QrMethod })}
+        onChange={(e) => onChange({ qr: e.target.value as QrMethod })}
       >
         {QR_METHODS.map((method) => (
           <option key={method} value={method}>
@@ -106,34 +166,20 @@ export function PaymentDetailsForm() {
           spellCheck={false}
           value={payment.upiId}
           validate={upiIdIssue}
-          onCommit={(upiId) => updatePayment({ upiId: upiId.trim() })}
+          onCommit={(upiId) => onChange({ upiId: upiId.trim() })}
         />
       )}
-      {payment.qr === 'sepa' && (
-        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_11rem]">
-          <CommitTextField
-            label="IBAN"
-            placeholder="DE89 3704 0044 0532 0130 00"
-            autoComplete="off"
-            autoCapitalize="characters"
-            spellCheck={false}
-            value={payment.iban}
-            validate={ibanIssue}
-            onCommit={(iban) => updatePayment({ iban: iban.trim() && formatIban(iban) })}
-          />
-          <CommitTextField
-            label="BIC"
-            optional
-            placeholder="COBADEFFXXX"
-            autoComplete="off"
-            autoCapitalize="characters"
-            spellCheck={false}
-            value={payment.bic}
-            validate={bicIssue}
-            onCommit={(bic) => updatePayment({ bic: bic.trim().toUpperCase() })}
-          />
-        </div>
+      {payment.qr === 'sepa' && !payment.iban && (
+        <p className="text-sm text-fg-muted">Add your IBAN under Bank details for a SEPA code.</p>
       )}
     </div>
   )
+}
+
+/** The business's default payment details, which every new invoice starts with. */
+export function DefaultPaymentDetailsForm() {
+  const payment = useProfileStore((state) => state.payment)
+  const updatePayment = useProfileStore((state) => state.updatePayment)
+  const currency = useSettingsStore((state) => state.currency)
+  return <PaymentDetailsForm payment={payment} onChange={updatePayment} currency={currency} />
 }

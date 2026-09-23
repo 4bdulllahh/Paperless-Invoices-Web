@@ -144,7 +144,7 @@ export function isValidIban(iban: string): boolean {
 
 export function ibanIssue(iban: string): string | undefined {
   if (!iban.trim() || isValidIban(iban)) return undefined
-  return 'Check the IBAN. It looks like DE89 3704 0044 0532 0130 00.'
+  return 'Check the IBAN. It looks like AE07 0331 2345 6789 0123 456.'
 }
 
 const BIC = /^[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}([A-Z0-9]{3})?$/

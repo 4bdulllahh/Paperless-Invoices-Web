@@ -18,6 +18,7 @@ import { TextAreaField } from '../../components/ui/Field'
 import { isPristineDraft } from '../../domain/draft'
 import { draftState } from '../../domain/export'
 import { formatDate } from '../../domain/format'
+import { paymentTermsText } from '../../domain/options'
 import { buildInvoiceViewModel } from '../../domain/viewModel'
 import { cn } from '../../lib/cn'
 import { useDraftStore, useHistoryStore } from '../../storage/stores'
@@ -132,7 +133,12 @@ export function EditorPane({ className, onEditProfile }: EditorPaneProps) {
           meta={`${itemCount} ${itemCount === 1 ? 'item' : 'items'}`}
           defaultOpen
         >
-          <LineItemsSection invoice={invoice} update={update} lines={view.lines} />
+          <LineItemsSection
+            invoice={invoice}
+            update={update}
+            lines={view.lines}
+            totals={view.raw}
+          />
         </Collapsible>
 
         <Collapsible
@@ -147,7 +153,11 @@ export function EditorPane({ className, onEditProfile }: EditorPaneProps) {
           title="Title, number & dates"
           id={sectionElementId('invoice')}
           icon={<CalendarDays />}
-          meta={`Due ${formatDate(invoice.dueDate, invoice.locale)}`}
+          meta={
+            invoice.dueMode === 'terms'
+              ? paymentTermsText(invoice.paymentTermsDays)
+              : `Due ${formatDate(invoice.dueDate, invoice.locale)}`
+          }
         >
           <InvoiceSection invoice={invoice} update={update} />
         </Collapsible>
@@ -161,8 +171,12 @@ export function EditorPane({ className, onEditProfile }: EditorPaneProps) {
           <FromSection invoice={invoice} update={update} onEditProfile={onEditProfile} />
         </Collapsible>
 
-        <Collapsible title="Payment" icon={<QrCode />}>
-          <PaymentSection onEditProfile={onEditProfile} />
+        <Collapsible
+          title="Payment"
+          icon={<QrCode />}
+          meta={invoice.payment ? 'Changed for this invoice' : ''}
+        >
+          <PaymentSection invoice={invoice} update={update} />
         </Collapsible>
 
         <Collapsible title="Notes" icon={<StickyNote />} meta={invoice.notes.trim() ? 'Added' : ''}>

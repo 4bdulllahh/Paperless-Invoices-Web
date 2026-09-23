@@ -250,9 +250,7 @@ function SkeletonPage({ template, width }: { template: TemplateId; width: string
         </div>
 
         <div className="flex items-end justify-between">
-          <div className="grid size-[16cqw] place-items-center rounded-[1cqw] border-[0.3cqw] border-dashed border-[#d6d0c4] text-[2cqw] text-[#a39c91]">
-            QR
-          </div>
+          <div className="grid size-[16cqw] place-items-center rounded-[1cqw] border-[0.3cqw] border-dashed border-[#d6d0c4]" />
           <div className="flex w-[40cqw] flex-col gap-[1.8cqw]">
             <div className="flex justify-between">
               <Bar w="14cqw" />

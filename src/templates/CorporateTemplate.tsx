@@ -13,7 +13,14 @@ import {
   SAND,
   type TemplateProps,
 } from './layout'
-import { LogoImage, PageFooter, PartyBlock, PaymentAndNotes, TotalInWords } from './shared'
+import {
+  LogoImage,
+  PageFooter,
+  PartyBlock,
+  PaymentAndNotes,
+  SignatureBlock,
+  TotalInWords,
+} from './shared'
 
 const SIDEBAR = 172
 const PAD = 36
@@ -99,7 +106,7 @@ const s = StyleSheet.create({
     color: '#fffcf2',
   },
   balanceText: { fontFamily: FONTS.display, fontWeight: 700, fontSize: 12 },
-  payment: { marginTop: 24 },
+  payment: { marginTop: 24, flexDirection: 'row', alignItems: 'flex-end', gap: 20 },
   heading: { fontFamily: FONTS.display, fontWeight: 700, fontSize: 9.5, marginBottom: 3 },
   body: { color: OLIVE, fontSize: 9, lineHeight: 1.45 },
   link: { color: INK, textDecoration: 'underline', marginTop: 3 },
@@ -116,8 +123,8 @@ const s = StyleSheet.create({
   },
 })
 
-export function CorporateTemplate({ view, logo, payment, qr }: TemplateProps) {
-  const columns = itemColumns(view)
+export function CorporateTemplate({ view, logo, payment, qr, signature, stamp }: TemplateProps) {
+  const columns = itemColumns(view, 357)
   const balance = view.totals.find((row) => row.kind === 'balance')!
   const summary = view.totals.filter((row) => row.kind !== 'balance')
 
@@ -141,10 +148,7 @@ export function CorporateTemplate({ view, logo, payment, qr }: TemplateProps) {
           <PartyBlock party={view.to} nameStyle={s.partyName} lineStyle={s.partyLine} />
         </View>
         <View>
-          {[
-            ['Issued', view.issueDate],
-            ['Due', view.dueDate],
-          ].map(([label, value]) => (
+          {[...view.facts.map((fact) => [fact.label, fact.value])].map(([label, value]) => (
             <View key={label} style={s.fact}>
               <Text style={s.label}>{label}</Text>
               <Text style={s.factValue}>{value}</Text>
@@ -167,10 +171,7 @@ export function CorporateTemplate({ view, logo, payment, qr }: TemplateProps) {
         {view.lines.map((line) => (
           <View key={line.id} style={s.row} wrap={false}>
             {columns.map((column) => (
-              <Text
-                key={column.key}
-                style={[cellStyle(column), column.key === 'amount' ? s.amount : {}]}
-              >
+              <Text key={column.key} style={[cellStyle(column), column.strong ? s.amount : {}]}>
                 {cellText(line, column)}
               </Text>
             ))}
@@ -198,14 +199,22 @@ export function CorporateTemplate({ view, logo, payment, qr }: TemplateProps) {
       </View>
 
       <View style={s.payment} wrap={false}>
-        <PaymentAndNotes
-          payment={payment}
-          qr={qr}
-          notes={view.notes}
-          payableTo={view.from.name}
-          headingStyle={s.heading}
-          textStyle={s.body}
-          linkStyle={s.link}
+        <View style={{ flex: 1 }}>
+          <PaymentAndNotes
+            payment={payment}
+            qr={qr}
+            notes={view.notes}
+            payableTo={view.from.name}
+            headingStyle={s.heading}
+            textStyle={s.body}
+            linkStyle={s.link}
+          />
+        </View>
+        <SignatureBlock
+          signed={view.signed}
+          signature={signature}
+          stamp={stamp}
+          name={view.from.name}
         />
       </View>
 

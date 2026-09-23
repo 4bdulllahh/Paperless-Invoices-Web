@@ -29,6 +29,9 @@ const SAMPLE_SETTINGS: Settings = {
   documentTitle: 'Invoice',
   taxIdLabel: 'EIN',
   amountInWords: false,
+  dueMode: 'date',
+  showLineTax: false,
+  signInvoices: false,
 }
 
 /** "Try with sample data": a fictional business and a filled-in invoice to explore. */

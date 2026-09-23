@@ -1,11 +1,24 @@
 import { z } from 'zod'
 import {
+  DUE_MODES,
   invoiceSchema,
   partySchema,
+  paymentDetailsSchema,
   percentSchema,
   TAX_MODES,
   TEMPLATE_IDS,
   type Party,
+  type PaymentDetails,
+  type PaymentMethod,
+} from './schema'
+
+export {
+  PAYMENT_METHODS,
+  paymentDetailsSchema,
+  QR_METHODS,
+  type PaymentDetails,
+  type PaymentMethod,
+  type QrMethod,
 } from './schema'
 
 /**
@@ -13,38 +26,12 @@ import {
  * and imported backups are checked against before use.
  */
 
-/** Ways a client can pay, printed on invoices as "Accepted: Bank transfer · Card…". */
-export const PAYMENT_METHODS = ['bank', 'card', 'cash', 'cheque'] as const
-
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   bank: 'Bank transfer',
   card: 'Card',
   cash: 'Cash',
   cheque: 'Cheque',
 }
-
-/** What the QR code on an invoice does when scanned, if there is one. */
-export const QR_METHODS = ['link', 'upi', 'sepa', 'none'] as const
-
-/**
- * How clients pay. The QR details are plain strings here: a mistyped IBAN only means no QR code,
- * never a profile that fails to load.
- */
-export const paymentDetailsSchema = z.object({
-  /** Free text printed on invoices, e.g. bank name, account number, IBAN. */
-  instructions: z.string(),
-  /** Optional https link a client can pay at (PayPal, Stripe, Wise…). */
-  link: z.string().trim(),
-  qr: z.enum(QR_METHODS),
-  /** UPI ID for rupee invoices, e.g. acmestudio@okhdfcbank. */
-  upiId: z.string().trim(),
-  /** Account for SEPA QR codes on euro invoices. */
-  iban: z.string().trim(),
-  /** Optional within the SEPA area. */
-  bic: z.string().trim(),
-  /** Accepted payment methods (added in 1.1; the default keeps older profiles valid). */
-  methods: z.array(z.enum(PAYMENT_METHODS)).default([]),
-})
 
 export const emptyPaymentDetails = (): PaymentDetails => ({
   instructions: '',
@@ -54,6 +41,9 @@ export const emptyPaymentDetails = (): PaymentDetails => ({
   iban: '',
   bic: '',
   methods: [],
+  bankName: '',
+  accountName: '',
+  accountNumber: '',
 })
 
 export const businessProfileSchema = z.object({
@@ -107,6 +97,11 @@ export const settingsSchema = z.object({
   documentTitle: z.string().trim().default('Invoice'),
   taxIdLabel: z.string().trim().default('Tax ID'),
   amountInWords: z.boolean().default(false),
+  /** Added in 1.2. */
+  dueMode: z.enum(DUE_MODES).default('date'),
+  showLineTax: z.boolean().default(false),
+  /** Sign new invoices: print the signature and stamp, or a line to sign on. */
+  signInvoices: z.boolean().default(false),
 })
 
 export const clientSchema = partySchema.extend({
@@ -123,6 +118,9 @@ export const HISTORY_STATUSES = ['unpaid', 'paid'] as const
 export const issuedWithSchema = z.object({
   payment: paymentDetailsSchema,
   logoId: z.string().min(1).nullable(),
+  /** Added in 1.2, stored with the logos. */
+  signatureId: z.string().min(1).nullable().default(null),
+  stampId: z.string().min(1).nullable().default(null),
 })
 
 /** A downloaded invoice, frozen as it was issued so later profile edits don't change it. */
@@ -139,13 +137,17 @@ export const historyEntrySchema = z.object({
   paidAt: z.iso.date().nullable(),
 })
 
-export type PaymentDetails = z.infer<typeof paymentDetailsSchema>
-export type QrMethod = (typeof QR_METHODS)[number]
-export type PaymentMethod = (typeof PAYMENT_METHODS)[number]
 export type BusinessProfile = z.infer<typeof businessProfileSchema>
 export type Logo = z.infer<typeof logoSchema>
 export type Settings = z.infer<typeof settingsSchema>
 export type Client = z.infer<typeof clientSchema>
 export type IssuedWith = z.infer<typeof issuedWithSchema>
+/** Everything besides the invoice that it's printed with. */
+export type PrintAssets = {
+  payment: PaymentDetails
+  logo: Logo | null
+  signature: Logo | null
+  stamp: Logo | null
+}
 export type HistoryEntry = z.infer<typeof historyEntrySchema>
 export type HistoryStatus = (typeof HISTORY_STATUSES)[number]

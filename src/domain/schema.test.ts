@@ -25,6 +25,41 @@ describe('invoiceSchema', () => {
     })
   })
 
+  it('fills in fields added in 1.2 for invoices saved before', () => {
+    const {
+      country: _c,
+      poNumber: _p,
+      supplyDate: _s,
+      dueMode: _d,
+      paymentTermsDays: _t,
+      payment: _pay,
+      signed: _sig,
+      showLineTax: _l,
+      ...older
+    } = createSampleInvoice()
+    const parsed = invoiceSchema.parse({
+      ...older,
+      items: older.items.map(({ unit: _u, code: _code, ...item }) => item),
+    })
+    expect(parsed).toMatchObject({
+      country: '',
+      poNumber: '',
+      supplyDate: '',
+      dueMode: 'date',
+      paymentTermsDays: 30,
+      payment: null,
+      signed: false,
+      showLineTax: false,
+    })
+    expect(parsed.items[0]).toMatchObject({ unit: '', code: '' })
+  })
+
+  it('takes a supply date or none, but not a malformed one', () => {
+    const ok = (supplyDate: string) =>
+      invoiceSchema.safeParse(createSampleInvoice({ supplyDate })).success
+    expect([ok(''), ok('2026-08-30'), ok('30/08/2026')]).toEqual([true, true, false])
+  })
+
   it('rejects unknown templates', () => {
     const invoice = { ...createSampleInvoice(), templateId: 'fancy' }
     expect(invoiceSchema.safeParse(invoice).success).toBe(false)

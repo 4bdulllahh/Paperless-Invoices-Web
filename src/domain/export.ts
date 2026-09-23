@@ -13,7 +13,12 @@ import type { Invoice } from './schema'
 export const EXPORT_SECTIONS = ['billTo', 'items', 'invoice', 'from'] as const
 export type ExportSection = (typeof EXPORT_SECTIONS)[number]
 
-export type ExportIssue = { section: ExportSection; message: string }
+export type ExportIssue = {
+  section: ExportSection
+  message: string
+  /** Something the law asks for: a warning the user may download past, not a blocker. */
+  legal?: boolean
+}
 
 const isoDate = z.iso.date()
 const normalizeNumber = (number: string) => number.trim().toLocaleLowerCase()

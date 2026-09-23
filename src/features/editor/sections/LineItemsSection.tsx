@@ -1,6 +1,7 @@
 import { Plus } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { Button } from '../../../components/ui/Button'
+import { taxIdRules } from '../../../domain/compliance'
 import { createLineItem } from '../../../domain/draft'
 import {
   addLineItem,
@@ -10,23 +11,58 @@ import {
   updateLineItem,
 } from '../../../domain/lineItems'
 import type { Invoice } from '../../../domain/schema'
+import type { InvoiceTotals } from '../../../domain/calc'
+import { formatMoney } from '../../../domain/format'
 import type { LineView } from '../../../domain/viewModel'
 import { useSettingsStore } from '../../../storage/stores'
 import { LineItemRow } from './LineItemRow'
 import type { InvoiceUpdater } from './types'
+
+/** Suggested units of measure; anything else can be typed. */
+const UNITS = [
+  'Pcs',
+  'Nos',
+  'Sets',
+  'Pairs',
+  'Box',
+  'Pack',
+  'Carton',
+  'Dozen',
+  'Roll',
+  'Kg',
+  'g',
+  'Ton',
+  'L',
+  'm',
+  'm²',
+  'Sq ft',
+  'Hrs',
+  'Days',
+  'Months',
+  'Lot',
+  'Job',
+  'Trip',
+  'Service',
+]
 
 type LineItemsSectionProps = {
   invoice: Invoice
   update: InvoiceUpdater
   /** Formatted lines from the view model, in the same order as invoice.items. */
   lines: LineView[]
+  /** The calculation behind them, for each line's tax. */
+  totals: InvoiceTotals
 }
 
-export function LineItemsSection({ invoice, update, lines }: LineItemsSectionProps) {
+export function LineItemsSection({ invoice, update, lines, totals }: LineItemsSectionProps) {
   const defaultTaxRate = useSettingsStore((state) => state.defaultTaxRate)
   const addButton = useRef<HTMLButtonElement>(null)
   // The line that should take focus when it appears (newly added or duplicated).
   const [focusId, setFocusId] = useState<string | null>(null)
+  const unitListId = useId()
+  const codeLabel = taxIdRules(invoice.country).itemCode
+  const taxLabel = invoice.taxLabel || 'Tax'
+  const money = (minor: number) => formatMoney(minor, invoice.currency, invoice.locale)
 
   function addLine() {
     const id = crypto.randomUUID()
@@ -49,6 +85,17 @@ export function LineItemsSection({ invoice, update, lines }: LineItemsSectionPro
           count={invoice.items.length}
           locale={invoice.locale}
           amount={lines[index]?.amount ?? ''}
+          lineTax={
+            invoice.showLineTax && totals.lines[index]
+              ? {
+                  label: taxLabel,
+                  tax: money(totals.lines[index].tax),
+                  total: money(totals.lines[index].totalWithTax),
+                }
+              : undefined
+          }
+          unitListId={unitListId}
+          codeLabel={codeLabel}
           autoFocus={item.id === focusId}
           onChange={(patch) => update((inv) => updateLineItem(inv, item.id, patch))}
           onMove={(direction) => update((inv) => moveLineItem(inv, item.id, direction))}
@@ -77,6 +124,11 @@ export function LineItemsSection({ invoice, update, lines }: LineItemsSectionPro
         <Plus />
         Add item
       </Button>
+      <datalist id={unitListId}>
+        {UNITS.map((unit) => (
+          <option key={unit} value={unit} />
+        ))}
+      </datalist>
     </div>
   )
 }

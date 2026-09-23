@@ -10,7 +10,14 @@ import {
   partyLines,
   type TemplateProps,
 } from './layout'
-import { LogoImage, PageFooter, PartyBlock, PaymentAndNotes, TotalInWords } from './shared'
+import {
+  LogoImage,
+  PageFooter,
+  PartyBlock,
+  PaymentAndNotes,
+  SignatureBlock,
+  TotalInWords,
+} from './shared'
 
 const PAD = 56
 
@@ -26,8 +33,8 @@ const s = StyleSheet.create({
   top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   businessName: { fontWeight: 600, fontSize: 10 },
   muted: { color: MUTED },
-  title: { fontSize: 30, marginTop: 44, letterSpacing: -0.5 },
-  facts: { flexDirection: 'row', gap: 36, marginTop: 14 },
+  title: { fontSize: 30, marginTop: 32, letterSpacing: -0.5 },
+  facts: { flexDirection: 'row', gap: 32, marginTop: 12 },
   label: {
     fontSize: 7,
     color: MUTED,
@@ -36,9 +43,9 @@ const s = StyleSheet.create({
     marginBottom: 3,
   },
   value: { fontWeight: 600 },
-  billTo: { marginTop: 28 },
+  billTo: { marginTop: 22 },
   partyName: { fontWeight: 600, marginBottom: 1 },
-  table: { marginTop: 36 },
+  table: { marginTop: 28 },
   headRow: {
     flexDirection: 'row',
     paddingBottom: 6,
@@ -96,8 +103,8 @@ const s = StyleSheet.create({
   },
 })
 
-export function MinimalTemplate({ view, logo, payment, qr }: TemplateProps) {
-  const columns = itemColumns(view)
+export function MinimalTemplate({ view, logo, payment, qr, signature, stamp }: TemplateProps) {
+  const columns = itemColumns(view, 483)
   const balance = view.totals.find((row) => row.kind === 'balance')!
   const summary = view.totals.filter((row) => row.kind !== 'balance')
 
@@ -117,16 +124,14 @@ export function MinimalTemplate({ view, logo, payment, qr }: TemplateProps) {
 
       <Text style={s.title}>{view.title}</Text>
       <View style={s.facts}>
-        {[
-          ['Number', view.number],
-          ['Issued', view.issueDate],
-          ['Due', view.dueDate],
-        ].map(([label, value]) => (
-          <View key={label}>
-            <Text style={s.label}>{label}</Text>
-            <Text style={s.value}>{value}</Text>
-          </View>
-        ))}
+        {[['Number', view.number], ...view.facts.map((fact) => [fact.label, fact.value])].map(
+          ([label, value]) => (
+            <View key={label}>
+              <Text style={s.label}>{label}</Text>
+              <Text style={s.value}>{value}</Text>
+            </View>
+          ),
+        )}
       </View>
 
       <View style={s.billTo}>
@@ -155,6 +160,11 @@ export function MinimalTemplate({ view, logo, payment, qr }: TemplateProps) {
 
       <View style={s.bottom} wrap={false}>
         <View style={s.notes}>
+          <TotalInWords
+            text={view.totalInWords}
+            style={{ ...s.words, marginTop: 0, marginBottom: 12 }}
+            labelStyle={s.wordsLabel}
+          />
           <PaymentAndNotes
             payment={payment}
             qr={qr}
@@ -179,10 +189,14 @@ export function MinimalTemplate({ view, logo, payment, qr }: TemplateProps) {
             <Text style={s.balanceText}>{balance.label}</Text>
             <Text style={s.balanceText}>{balance.value}</Text>
           </View>
+          <SignatureBlock
+            signed={view.signed}
+            signature={signature}
+            stamp={stamp}
+            name={view.from.name}
+          />
         </View>
       </View>
-
-      <TotalInWords text={view.totalInWords} style={s.words} labelStyle={s.wordsLabel} />
 
       <PageFooter number={view.number} style={s.footer} />
     </Page>

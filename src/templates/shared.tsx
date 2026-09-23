@@ -2,7 +2,8 @@ import { Image, Link, Path, Rect, Svg, Text, View } from '@react-pdf/renderer'
 import type { PaymentQr } from '../domain/paymentQr'
 import { PAYMENT_METHOD_LABELS, type Logo, type PaymentDetails } from '../domain/records'
 import type { PartyView } from '../domain/viewModel'
-import { INK, partyLines, type Style } from './layout'
+import { FONTS } from './fonts'
+import { bankLines, INK, MUTED, partyLines, type Style } from './layout'
 import { QR_QUIET_ZONE, qrMatrix, qrPath } from './qr'
 
 /** About 26 mm: easy for a phone camera to read from a printed page. */
@@ -67,8 +68,8 @@ export function QrCode({ value, size }: { value: string; size: number }) {
 }
 
 /**
- * Accepted payment methods, instructions, a clickable link and a QR code, plus notes; each only
- * if there is one.
+ * Accepted payment methods, bank details, instructions, a clickable link and a QR code, plus
+ * notes; each only if there is one.
  */
 export function PaymentAndNotes({
   payment,
@@ -91,15 +92,21 @@ export function PaymentAndNotes({
   const instructions = payment.instructions.trim()
   const methods = payment.methods.map((method) => PAYMENT_METHOD_LABELS[method])
   const cheques = payment.methods.includes('cheque') && payableTo
+  const bank = bankLines(payment)
   return (
     <View style={{ gap: 14 }}>
-      {(instructions || payment.link || qr || methods.length > 0) && (
+      {(instructions || payment.link || qr || methods.length > 0 || bank.length > 0) && (
         <View>
           <Text style={headingStyle}>Payment</Text>
           {methods.length > 0 ? (
             <Text style={textStyle}>Accepted: {methods.join(' · ')}</Text>
           ) : null}
           {cheques ? <Text style={textStyle}>Cheques payable to {payableTo}</Text> : null}
+          {bank.map((line) => (
+            <Text key={line} style={textStyle}>
+              {line}
+            </Text>
+          ))}
           {instructions ? <Text style={textStyle}>{instructions}</Text> : null}
           {payment.link ? (
             <Link src={payment.link} style={linkStyle}>
@@ -146,6 +153,77 @@ export function TotalInWords({
       <Text style={labelStyle}>Amount in words: </Text>
       {text}
     </Text>
+  )
+}
+
+/**
+ * Stamp and signature over a line labelled "Authorised signature", at the right of the page.
+ * With neither image, the line is left for signing by hand.
+ */
+export function SignatureBlock({
+  signed,
+  signature,
+  stamp,
+  name,
+  align = 'right',
+}: {
+  signed: boolean
+  signature: Logo | null
+  stamp: Logo | null
+  /** The business signing, printed as "For Acme Studio". */
+  name: string
+  align?: 'left' | 'right'
+}) {
+  if (!signed) return null
+  return (
+    <View
+      wrap={false}
+      style={{ alignSelf: align === 'left' ? 'flex-start' : 'flex-end', width: 190, marginTop: 10 }}
+    >
+      <View
+        style={{
+          height: 56,
+          flexDirection: 'row',
+          alignItems: 'flex-end',
+          justifyContent: 'center',
+        }}
+      >
+        {stamp && <LogoImage logo={stamp} maxWidth={80} maxHeight={56} />}
+        {signature && (
+          <View style={{ marginLeft: stamp ? -24 : 0, marginBottom: 4 }}>
+            <LogoImage logo={signature} maxWidth={120} maxHeight={42} />
+          </View>
+        )}
+      </View>
+      <View style={{ borderTopWidth: 0.75, borderTopColor: INK, marginTop: 4, paddingTop: 4 }}>
+        <Text
+          style={{
+            fontFamily: FONTS.sans,
+            fontSize: 7,
+            fontWeight: 600,
+            color: INK,
+            textAlign: 'center',
+            textTransform: 'uppercase',
+            letterSpacing: 0.8,
+          }}
+        >
+          Authorised signature
+        </Text>
+        {name ? (
+          <Text
+            style={{
+              fontFamily: FONTS.sans,
+              fontSize: 7.5,
+              color: MUTED,
+              textAlign: 'center',
+              marginTop: 2,
+            }}
+          >
+            For {name}
+          </Text>
+        ) : null}
+      </View>
+    </View>
   )
 }
 
