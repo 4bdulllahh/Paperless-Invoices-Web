@@ -121,7 +121,7 @@ export function warmUp() {
   pdfjsWorker ??= new PDFWorker()
 }
 
-/** Render and rasterise in one step, for the live preview. */
-export async function renderPreview(props: TemplateProps): Promise<PreviewPage[]> {
-  return rasterizePdf(await renderInvoicePdf(props))
+/** Render and rasterise in one step, for the live preview. `width` is in device pixels. */
+export async function renderPreview(props: TemplateProps, width?: number): Promise<PreviewPage[]> {
+  return rasterizePdf(await renderInvoicePdf(props), width)
 }

@@ -5,7 +5,7 @@
 - **Project:** Paperless, a 100% free, local-first invoicing web app. It's a portfolio piece with no backend, database or auth.
 - **Repo:** `C:\Users\Computer\Documents\GitHub\Paperless`, remote `https://github.com/4bdulllahh/Paperless-Web.git`, branch `main`.
 - **Live site:** https://paperless-bay-zeta.vercel.app/ (Vercel Hobby tier; every push to `main` deploys automatically).
-- **Last milestone:** Milestone 10 (production release), tagged `v1.0.0`. All planned milestones are done.
+- **Last release:** v1.1.0 (the user's feedback round after v1.0.0), tagged `v1.1.0`. All planned milestones are done.
   - CI passed.
   - Live deploy verified: the QR codes scanned correctly off the live preview, with no console errors.
 - **Working tree:** clean. `handover.md` is tracked; keep it Prettier-formatted or CI's `format:check` fails (it did once).
@@ -144,6 +144,27 @@
 - Version 1.0.0, shown in Settings through the `__APP_VERSION__` define (declared in `src/globals.d.ts`).
 - README has screenshots in `docs/screenshots/*.webp`, captured with `m10shots.mjs` in the scratch `shots` folder, then resized with PIL. It also has features, privacy, security and architecture sections (a mermaid diagram).
 - Browser checks: `m10csp.mjs <outDir> <logo.png>` runs under the CSP and collects violations from the page and the workers. Also run `m8.mjs` and `m9.mjs`.
+
+### v1.1: the user's feedback round (done)
+
+The user asked for eight changes after v1.0.0:
+
+- **Totals shown in dollars:** Settings changes didn't reach the open draft. `followDefaults` (domain/draft.ts) is applied by `updateSettings`: every draft field still at the old default takes the new one (currency, locale, tax mode and label, template, title, tax number label, words, due date via terms, number via pattern, and item tax rates). It skips drafts already in History and doesn't run on `claimSequence`.
+- **Empty first run:** the setup wizard has 4 steps. The country comes first and is required. The initial `taxLabel` is now `''`.
+- **Country presets:** `domain/countries.ts` has 63 countries: currency, English-variant locale (so PDFs never print scripts the fonts lack), tax label and standard rate as of 2026, tax number label, `Tax invoice` title where required, amount in words where customary, and a legal note (e.g. e-invoicing mandates in IT, BE, PL, SA, MX…). `CountryField` (features/settings) is used in the wizard and Settings. Changing the country re-applies the preset.
+- **New fields, with Zod defaults so no migration is needed:**
+  - invoice: `title`, `taxIdLabel`, `amountInWords`
+  - settings: `country`, `documentTitle`, `taxIdLabel`, `amountInWords`
+  - payment: `methods` (`bank`/`card`/`cash`/`cheque`)
+- **Templates:** six now (added `bold`, `corporate`, `compact`). Names and descriptions are in `TEMPLATE_OPTIONS` (domain/options.ts). The picker is a dropdown in the preview header and Settings. Shared `TotalInWords`; `PaymentAndNotes` prints "Accepted: …" and "Cheques payable to …".
+- **Amount in words:** `domain/words.ts`. It covers 37 currencies with unit names, uses lakh/crore for INR/PKR/BDT/NPR, adds "only" for South Asia and the Gulf, and falls back to the Intl currency name plus a fraction.
+- **Not an installable app:** `manifest: false` in VitePWA, and the PWA icons are deleted. The offline service worker stays. The user had installed the app window from M9; they need to uninstall it from that window's menu or from edge://apps.
+- **Preview zoom:** `usePreviewZoom` gives fit width (default, remembered in localStorage), steps of 50–300%, fit page, Ctrl/⌘+wheel (capped at ~1.2× per notch) and touch pinch. The render resolution scales from 1240 to 3720 px. The pane is a focusable region. The TopBar brand is now the page's `h1`.
+- **Checks:**
+  - 496 tests; coverage of domain and storage still 100%
+  - start-up JS ~133.9 KB gzipped
+  - `m11.mjs` covers first run, country, the footer currency fix, zoom, the templates, download and phone, with axe clean
+  - `m8`, `m9` and `m10csp` updated and passing
 
 ### Possible next steps (only if the user asks)
 

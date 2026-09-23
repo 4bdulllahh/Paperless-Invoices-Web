@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { CheckboxField } from '../../../components/ui/Checkbox'
 import { SelectField, TextField } from '../../../components/ui/Field'
 import { addDays, daysBetween } from '../../../domain/dates'
 import { currencyOptions } from '../../../domain/options'
@@ -6,19 +7,27 @@ import type { Invoice } from '../../../domain/schema'
 import { validateDate } from '../validators'
 import type { InvoiceUpdater } from './types'
 
-/** Number, dates and currency. */
+/** Title, number, dates and currency. */
 export function InvoiceSection({ invoice, update }: { invoice: Invoice; update: InvoiceUpdater }) {
   const currencies = useMemo(() => currencyOptions(invoice.locale), [invoice.locale])
   const dueBeforeIssue = invoice.dueDate < invoice.issueDate
 
   return (
     <div className="flex flex-col gap-3">
-      <TextField
-        label="Invoice number"
-        spellCheck={false}
-        value={invoice.number}
-        onChange={(e) => update((inv) => ({ ...inv, number: e.target.value }))}
-      />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <TextField
+          label="Title"
+          placeholder="Invoice"
+          value={invoice.title}
+          onChange={(e) => update((inv) => ({ ...inv, title: e.target.value }))}
+        />
+        <TextField
+          label="Invoice number"
+          spellCheck={false}
+          value={invoice.number}
+          onChange={(e) => update((inv) => ({ ...inv, number: e.target.value }))}
+        />
+      </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <TextField
           label="Issue date"
@@ -69,6 +78,11 @@ export function InvoiceSection({ invoice, update }: { invoice: Invoice; update: 
           ))}
         </optgroup>
       </SelectField>
+      <CheckboxField
+        label="Write the total in words"
+        checked={invoice.amountInWords}
+        onChange={(e) => update((inv) => ({ ...inv, amountInWords: e.target.checked }))}
+      />
     </div>
   )
 }

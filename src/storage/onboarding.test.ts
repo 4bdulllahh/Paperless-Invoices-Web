@@ -27,15 +27,19 @@ describe('finishOnboarding', () => {
     expect(useDraftStore.getState().invoice?.currency).toBe('GBP')
   })
 
-  it('keeps a draft the user has started', () => {
+  it('keeps a draft the user has started (which follows changed defaults on its own)', () => {
     const { startNewInvoice, updateInvoice } = useDraftStore.getState()
-    startNewInvoice('2026-09-23')
+    const started = startNewInvoice('2026-09-23')
     updateInvoice((invoice) => ({ ...invoice, notes: 'Keep me' }))
     useSettingsStore.getState().updateSettings({ currency: 'GBP' })
 
     finishOnboarding('2026-09-23')
 
-    expect(useDraftStore.getState().invoice).toMatchObject({ notes: 'Keep me', currency: 'USD' })
+    expect(useDraftStore.getState().invoice).toMatchObject({
+      id: started.id,
+      notes: 'Keep me',
+      currency: 'GBP',
+    })
   })
 })
 

@@ -20,7 +20,14 @@ export const quantitySchema = decimalString(QUANTITY_SCALE, 'Enter a quantity, e
 export const moneySchema = decimalString(MONEY_SCALE, 'Enter an amount, e.g. 49.99')
 export const percentSchema = decimalString(RATE_SCALE, 'Enter a percentage, e.g. 20 or 8.875')
 
-export const TEMPLATE_IDS = ['modern', 'classic', 'minimal'] as const
+export const TEMPLATE_IDS = [
+  'modern',
+  'classic',
+  'minimal',
+  'bold',
+  'corporate',
+  'compact',
+] as const
 export const TAX_MODES = ['exclusive', 'inclusive'] as const
 export const DISCOUNT_TYPES = ['none', 'percent', 'fixed'] as const
 
@@ -80,6 +87,16 @@ export const invoiceSchema = z.object({
   amountPaid: moneySchema,
   notes: z.string(),
   templateId: z.enum(TEMPLATE_IDS),
+  /**
+   * The fields below were added in version 1.1. Their defaults fill them in for invoices saved
+   * before, so no migration is needed.
+   */
+  /** Printed as the heading, e.g. "Invoice" or "Tax invoice" where the law asks for it. */
+  title: z.string().trim().default('Invoice'),
+  /** How tax numbers are labelled for the sender's country, e.g. "TRN", "GSTIN", "VAT no.". */
+  taxIdLabel: z.string().trim().default('Tax ID'),
+  /** Print the total in words, e.g. "One thousand US dollars only". */
+  amountInWords: z.boolean().default(false),
 })
 
 export type Party = z.infer<typeof partySchema>

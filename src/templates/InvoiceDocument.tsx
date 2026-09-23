@@ -8,7 +8,7 @@ export function InvoiceDocument(props: TemplateProps) {
   const Template = TEMPLATES[view.templateId]
   return (
     <Document
-      title={`Invoice ${view.number}`}
+      title={`${view.title} ${view.number}`}
       author={view.from.name || undefined}
       subject={view.to.name ? `Invoice for ${view.to.name}` : 'Invoice'}
       creator="Paperless"

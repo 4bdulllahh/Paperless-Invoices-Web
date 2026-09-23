@@ -25,6 +25,8 @@ beforeEach(async () => {
 afterEach(() => vi.useRealTimers())
 
 const lastProps = () => renderPreview.mock.lastCall?.[0] as TemplateProps
+/** A page's width as a percentage of the pane (jsdom simplifies "calc(100cqw * 1.25)"). */
+const widthOf = (page: HTMLElement) => Number(page.style.width.match(/[\d.]+/)?.[0])
 
 describe('PreviewPane', () => {
   it('shows a stand-in page until the PDF is drawn, then the real pages', async () => {
@@ -88,8 +90,54 @@ describe('PreviewPane', () => {
   it('switches the invoice’s template', async () => {
     renderPreview.mockResolvedValue(pagesOf(1))
     render(<PreviewPane />)
-    fireEvent.click(screen.getByRole('radio', { name: 'Classic' }))
-    expect(useDraftStore.getState().invoice?.templateId).toBe('classic')
-    await waitFor(() => expect(lastProps().view.templateId).toBe('classic'))
+    fireEvent.change(screen.getByLabelText('Invoice template'), { target: { value: 'bold' } })
+    expect(useDraftStore.getState().invoice?.templateId).toBe('bold')
+    await waitFor(() => expect(lastProps().view.templateId).toBe('bold'))
+  })
+
+  it('zooms with buttons and Ctrl + scroll, and remembers the zoom', async () => {
+    renderPreview.mockResolvedValue(pagesOf(1))
+    const { unmount } = render(<PreviewPane />)
+    const page = await screen.findByRole('img', { name: /page 1 of 1/ })
+    // Opens at fit width, drawn at the base resolution.
+    expect(widthOf(page)).toBe(100)
+    expect(renderPreview.mock.lastCall?.[1]).toBe(1240)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
+    expect(widthOf(page)).toBe(125)
+    expect(screen.getByRole('button', { name: /Zoom 125%/ })).toBeInTheDocument()
+
+    // One mouse-wheel notch zooms by about 1.2×.
+    const pane = screen.getByRole('region', { name: 'Invoice preview' })
+    fireEvent.wheel(pane, { deltaY: -100, ctrlKey: true })
+    expect(screen.getByRole('button', { name: /Zoom 153%/ })).toBeInTheDocument()
+    // A plain scroll just scrolls.
+    fireEvent.wheel(pane, { deltaY: 100 })
+    expect(screen.getByRole('button', { name: /Zoom 153%/ })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /fit to width/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom out' }))
+    expect(widthOf(page)).toBe(75)
+
+    unmount()
+    render(<PreviewPane />)
+    expect(await screen.findByRole('button', { name: /Zoom 75%/ })).toBeInTheDocument()
+  })
+
+  it('fits a whole page, and back to the width', async () => {
+    renderPreview.mockResolvedValue(pagesOf(1))
+    render(<PreviewPane />)
+    await screen.findByRole('img', { name: /page 1 of 1/ })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fit whole page' }))
+    expect(screen.getByRole('button', { name: 'Fit to width' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Fit to width' }))
+    expect(screen.getByRole('button', { name: 'Fit whole page' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
   })
 })

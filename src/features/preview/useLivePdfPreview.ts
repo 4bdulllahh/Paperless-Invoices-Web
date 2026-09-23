@@ -10,10 +10,14 @@ export type PreviewStatus = 'loading' | 'ready' | 'updating' | 'error'
 export const PREVIEW_DELAY_MS = 350
 
 /**
- * The current draft rendered as the real PDF, page by page. Redraws shortly after each change;
- * the previous pages stay on screen meanwhile, and results that arrive out of order are dropped.
+ * The current draft rendered as the real PDF, page by page. Redraws shortly after each change,
+ * or when zooming in needs more detail; the previous pages stay on screen meanwhile, and results
+ * that arrive out of order are dropped.
  */
-export function useLivePdfPreview() {
+export function useLivePdfPreview(
+  /** Pixel width to draw pages at; more when zoomed in, so text stays sharp. */
+  resolution = 1240,
+) {
   const invoice = useDraftStore((state) => state.invoice)
   const logo = useLogoStore((state) => state.logo)
   const logoReady = useHydrated(useLogoStore)
@@ -37,7 +41,7 @@ export function useLivePdfPreview() {
       setStatus((current) => (current === 'loading' ? 'loading' : 'updating'))
       try {
         const { renderPreview } = await import('../../services/pdf')
-        const next = await renderPreview(buildTemplateProps(invoice, logo, payment))
+        const next = await renderPreview(buildTemplateProps(invoice, logo, payment), resolution)
         if (request !== latestRequest.current) {
           next.forEach((page) => URL.revokeObjectURL(page.url))
           return
@@ -53,7 +57,7 @@ export function useLivePdfPreview() {
       }
     }, delay)
     return () => clearTimeout(timer)
-  }, [invoice, logo, logoReady, payment, attempt])
+  }, [invoice, logo, logoReady, payment, attempt, resolution])
 
   // Load the PDF engine shortly after start-up, even before there's an invoice to draw (a new
   // visitor is still in the setup wizard), so the first preview doesn't wait on the network.

@@ -17,10 +17,48 @@ beforeEach(async () => {
 const next = () => fireEvent.click(screen.getByRole('button', { name: /Continue|Finish setup/ }))
 const stepHeading = () => screen.getByRole('heading', { level: 2 })
 
+const chooseCountry = (code: string) =>
+  fireEvent.change(screen.getByLabelText('Country your business is in'), {
+    target: { value: code },
+  })
+
 describe('OnboardingWizard', () => {
+  it('starts with nothing chosen, and asks for the country first', () => {
+    render(<OnboardingWizard />)
+    expect(screen.getByText('Step 1 of 4')).toBeInTheDocument()
+    expect(stepHeading()).toHaveTextContent('Where is your business?')
+    expect(screen.getByLabelText('Country your business is in')).toHaveValue('')
+
+    next()
+
+    expect(screen.getByText('Choose your country, or “Somewhere else”.')).toBeInTheDocument()
+    expect(stepHeading()).toHaveTextContent('Where is your business?')
+  })
+
+  it('fills in the country’s currency, tax and invoice rules', () => {
+    render(<OnboardingWizard />)
+    chooseCountry('AE')
+
+    expect(screen.getByText(/Set up for United Arab Emirates/).closest('p')).toHaveTextContent(
+      'AED · VAT 5% · tax number shown as “TRN” · titled “Tax invoice” · total in words',
+    )
+    expect(screen.getByText(/must show their TRN/)).toBeInTheDocument()
+    expect(useSettingsStore.getState()).toMatchObject({
+      country: 'AE',
+      currency: 'AED',
+      locale: 'en-AE',
+      taxLabel: 'VAT',
+      defaultTaxRate: '5',
+      taxIdLabel: 'TRN',
+      documentTitle: 'Tax invoice',
+      amountInWords: true,
+    })
+  })
+
   it('asks for a business name before moving on', () => {
     render(<OnboardingWizard />)
-    expect(screen.getByText('Step 1 of 3')).toBeInTheDocument()
+    chooseCountry('OTHER')
+    next()
     expect(screen.queryByText('Enter your business or trading name.')).not.toBeInTheDocument()
 
     next()
@@ -29,19 +67,23 @@ describe('OnboardingWizard', () => {
     expect(stepHeading()).toHaveTextContent('Your business')
   })
 
-  it('walks through all three steps and fills in the first invoice', () => {
+  it('walks through all four steps and fills in the first invoice', () => {
     render(<OnboardingWizard />)
     expect(stepHeading()).toHaveFocus()
+    chooseCountry('DE')
+    next()
 
     fireEvent.change(screen.getByLabelText('Business name'), { target: { value: 'Acme Studio' } })
     next()
     expect(stepHeading()).toHaveTextContent('Invoice defaults')
     expect(stepHeading()).toHaveFocus()
-
-    fireEvent.change(screen.getByLabelText('Currency'), { target: { value: 'EUR' } })
+    // The country was chosen on its own step.
+    expect(screen.queryByLabelText('Country your business is in')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Currency')).toHaveValue('EUR')
     next()
     expect(stepHeading()).toHaveTextContent('Getting paid')
 
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Bank transfer' }))
     fireEvent.change(screen.getByLabelText(/Payment instructions/), {
       target: { value: 'IBAN DE00 0000' },
     })
@@ -49,11 +91,13 @@ describe('OnboardingWizard', () => {
 
     expect(useProfileStore.getState()).toMatchObject({
       onboardingComplete: true,
-      payment: { instructions: 'IBAN DE00 0000' },
+      payment: { instructions: 'IBAN DE00 0000', methods: ['bank'] },
     })
-    expect(useSettingsStore.getState().currency).toBe('EUR')
     expect(useDraftStore.getState().invoice).toMatchObject({
       currency: 'EUR',
+      taxLabel: 'VAT',
+      items: [{ taxRate: '19' }],
+      taxIdLabel: 'VAT no.',
       from: { name: 'Acme Studio' },
     })
     expect(requestPersistentStorage).toHaveBeenCalledOnce()
@@ -62,6 +106,8 @@ describe('OnboardingWizard', () => {
   it('can go back a step', () => {
     useProfileStore.getState().updateBusiness({ name: 'Acme Studio' })
     render(<OnboardingWizard />)
+    chooseCountry('GB')
+    next()
     next()
     fireEvent.click(screen.getByRole('button', { name: 'Back' }))
     expect(stepHeading()).toHaveTextContent('Your business')

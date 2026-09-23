@@ -62,7 +62,54 @@ export function createInvoiceDraft({ id, lineId, today, settings, business }: Dr
     amountPaid: '',
     notes: '',
     templateId: settings.templateId,
+    title: settings.documentTitle,
+    taxIdLabel: settings.taxIdLabel,
+    amountInWords: settings.amountInWords,
   }
+}
+
+/**
+ * Carry a change of defaults over to the draft: every field still at the old default takes the
+ * new one, and anything changed on the invoice itself is left alone. Returns the same invoice
+ * when nothing applies.
+ */
+export function followDefaults(invoice: Invoice, before: Settings, after: Settings): Invoice {
+  const next = { ...invoice }
+  let changed = false
+  const follow = <K extends keyof Invoice>(key: K, was: Invoice[K], now: Invoice[K]) => {
+    if (invoice[key] === was && was !== now) {
+      next[key] = now
+      changed = true
+    }
+  }
+  follow('currency', before.currency, after.currency)
+  follow('locale', before.locale, after.locale)
+  follow('taxMode', before.taxMode, after.taxMode)
+  follow('taxLabel', before.taxLabel, after.taxLabel)
+  follow('templateId', before.templateId, after.templateId)
+  follow('title', before.documentTitle, after.documentTitle)
+  follow('taxIdLabel', before.taxIdLabel, after.taxIdLabel)
+  follow('amountInWords', before.amountInWords, after.amountInWords)
+  follow(
+    'dueDate',
+    addDays(invoice.issueDate, before.paymentTermsDays),
+    addDays(invoice.issueDate, after.paymentTermsDays),
+  )
+  follow(
+    'number',
+    formatInvoiceNumber(before.numberPattern, before.nextSequence, invoice.issueDate),
+    formatInvoiceNumber(after.numberPattern, after.nextSequence, invoice.issueDate),
+  )
+  if (before.defaultTaxRate !== after.defaultTaxRate) {
+    const items = invoice.items.map((item) =>
+      item.taxRate === before.defaultTaxRate ? { ...item, taxRate: after.defaultTaxRate } : item,
+    )
+    if (items.some((item, i) => item !== invoice.items[i])) {
+      next.items = items
+      changed = true
+    }
+  }
+  return changed ? next : invoice
 }
 
 type DuplicateInput = Omit<DraftInput, 'lineId'> & {

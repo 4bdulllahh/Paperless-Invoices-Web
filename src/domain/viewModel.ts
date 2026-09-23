@@ -2,12 +2,15 @@ import { calculateTotals, type InvoiceTotals } from './calc'
 import { parseDecimalOrZero, RATE_SCALE } from './decimal'
 import { formatDate, formatMoney, formatQuantity, formatRate, formatUnitPrice } from './format'
 import type { Discount, Invoice, Party, TaxMode, TemplateId } from './schema'
+import { amountInWords } from './words'
 
 /**
  * Everything a template needs, already calculated and formatted.
  * Templates only lay this out, so all three always show identical numbers.
  */
 export type InvoiceViewModel = {
+  /** "Invoice", or "Tax invoice" where the law asks for it. */
+  title: string
   number: string
   issueDate: string
   dueDate: string
@@ -22,12 +25,18 @@ export type InvoiceViewModel = {
   showDiscountColumn: boolean
   totals: TotalRow[]
   balanceDue: string
+  /** The total in words, when the invoice asks for it. */
+  totalInWords: string | null
   notes: string
   /** The raw calculation, for anything that needs numbers rather than text. */
   raw: InvoiceTotals
 }
 
-export type PartyView = Omit<Party, 'address'> & { addressLines: string[] }
+export type PartyView = Omit<Party, 'address'> & {
+  addressLines: string[]
+  /** How the tax number is labelled, e.g. "TRN". */
+  taxIdLabel: string
+}
 
 export type LineView = {
   id: string
@@ -94,28 +103,32 @@ export function buildInvoiceViewModel(invoice: Invoice): InvoiceViewModel {
   }
   rows.push({ kind: 'balance', label: 'Balance due', value: money(totals.balanceDue) })
 
+  const taxIdLabel = invoice.taxIdLabel || 'Tax ID'
   return {
+    title: invoice.title || 'Invoice',
     number: invoice.number,
     issueDate: formatDate(invoice.issueDate, locale),
     dueDate: formatDate(invoice.dueDate, locale),
     currency,
     taxMode: invoice.taxMode,
     templateId: invoice.templateId,
-    from: partyView(invoice.from),
-    to: partyView(invoice.to),
+    from: partyView(invoice.from, taxIdLabel),
+    to: partyView(invoice.to, taxIdLabel),
     lines,
     showTaxColumn: new Set(totals.lines.map((l) => l.taxRatePpm)).size > 1,
     showDiscountColumn: totals.lines.some((l) => l.lineDiscount > 0),
     totals: rows,
     balanceDue: money(totals.balanceDue),
+    totalInWords: invoice.amountInWords ? amountInWords(totals.total, currency) : null,
     notes: invoice.notes.trim(),
     raw: totals,
   }
 }
 
-function partyView({ address, ...party }: Party): PartyView {
+function partyView({ address, ...party }: Party, taxIdLabel: string): PartyView {
   return {
     ...party,
+    taxIdLabel,
     addressLines: address
       .split('\n')
       .map((line) => line.trim())

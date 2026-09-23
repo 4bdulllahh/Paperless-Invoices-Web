@@ -25,6 +25,10 @@ const SAMPLE_SETTINGS: Settings = {
   numberPattern: DEFAULT_NUMBER_PATTERN,
   nextSequence: 42,
   templateId: 'modern',
+  country: 'US',
+  documentTitle: 'Invoice',
+  taxIdLabel: 'EIN',
+  amountInWords: false,
 }
 
 /** "Try with sample data": a fictional business and a filled-in invoice to explore. */

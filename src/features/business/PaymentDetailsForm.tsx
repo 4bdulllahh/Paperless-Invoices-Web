@@ -1,13 +1,21 @@
+import { ChoiceChips } from '../../components/ui/Checkbox'
 import { CommitTextField } from '../../components/ui/CommitTextField'
 import { SelectField, TextAreaField } from '../../components/ui/Field'
 import { bicIssue, formatIban, ibanIssue, upiIdIssue } from '../../domain/paymentQr'
 import {
+  PAYMENT_METHOD_LABELS,
+  PAYMENT_METHODS,
   paymentLinkIssue,
   QR_METHODS,
   type PaymentDetails,
   type QrMethod,
 } from '../../domain/records'
 import { useProfileStore, useSettingsStore } from '../../storage/stores'
+
+const METHOD_OPTIONS = PAYMENT_METHODS.map((value) => ({
+  value,
+  label: PAYMENT_METHOD_LABELS[value],
+}))
 
 const QR_LABELS: Record<QrMethod, string> = {
   link: 'Payment link',
@@ -44,6 +52,17 @@ export function PaymentDetailsForm() {
 
   return (
     <div className="flex flex-col gap-4">
+      <ChoiceChips
+        legend="Payment methods you accept"
+        hint={
+          payment.methods.includes('cheque')
+            ? 'Printed on invoices, with “Cheques payable to” your business name.'
+            : 'Printed on invoices, e.g. “Accepted: Bank transfer · Card”.'
+        }
+        options={METHOD_OPTIONS}
+        selected={payment.methods}
+        onChange={(methods) => updatePayment({ methods })}
+      />
       <TextAreaField
         label="Payment instructions"
         optional

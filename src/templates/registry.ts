@@ -1,6 +1,9 @@
 import type { ComponentType } from 'react'
 import type { TemplateId } from '../domain/schema'
+import { BoldTemplate } from './BoldTemplate'
 import { ClassicTemplate } from './ClassicTemplate'
+import { CompactTemplate } from './CompactTemplate'
+import { CorporateTemplate } from './CorporateTemplate'
 import type { TemplateProps } from './layout'
 import { MinimalTemplate } from './MinimalTemplate'
 import { ModernTemplate } from './ModernTemplate'
@@ -10,4 +13,7 @@ export const TEMPLATES: Record<TemplateId, ComponentType<TemplateProps>> = {
   modern: ModernTemplate,
   classic: ClassicTemplate,
   minimal: MinimalTemplate,
+  bold: BoldTemplate,
+  corporate: CorporateTemplate,
+  compact: CompactTemplate,
 }

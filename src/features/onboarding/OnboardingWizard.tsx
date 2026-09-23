@@ -6,18 +6,23 @@ import { businessIssues } from '../../domain/records'
 import { cn } from '../../lib/cn'
 import { finishOnboarding, loadSampleData } from '../../storage/onboarding'
 import { requestPersistentStorage } from '../../storage/persistence'
-import { useProfileStore } from '../../storage/stores'
+import { useProfileStore, useSettingsStore } from '../../storage/stores'
 import { BusinessDetailsForm } from '../business/BusinessDetailsForm'
 import { PaymentDetailsForm } from '../business/PaymentDetailsForm'
+import { CountryField } from '../settings/CountryField'
 import { InvoiceDefaultsForm } from '../settings/InvoiceDefaultsForm'
 
 const STEPS = [
+  {
+    title: 'Where is your business?',
+    description: 'We’ll set up the currency, tax and invoice rules that apply there.',
+  },
   { title: 'Your business', description: 'This appears at the top of every invoice.' },
   {
     title: 'Invoice defaults',
     description: 'Used for every new invoice. You can change them any time in Settings.',
   },
-  { title: 'Getting paid', description: 'Tell clients how to pay you. Both are optional.' },
+  { title: 'Getting paid', description: 'Tell clients how they can pay you. All optional.' },
 ] as const
 
 /**
@@ -28,6 +33,7 @@ export function OnboardingWizard() {
   const [step, setStep] = useState(0)
   const [showRequired, setShowRequired] = useState(false)
   const business = useProfileStore((state) => state.business)
+  const country = useSettingsStore((state) => state.country)
   const heading = useRef<HTMLHeadingElement>(null)
   const last = step === STEPS.length - 1
 
@@ -42,10 +48,13 @@ export function OnboardingWizard() {
 
   function submit(event: FormEvent) {
     event.preventDefault()
-    if (step === 0 && Object.keys(businessIssues(business)).length > 0) {
+    const incomplete =
+      (step === 0 && !country) || (step === 1 && Object.keys(businessIssues(business)).length > 0)
+    if (incomplete) {
       setShowRequired(true)
       return
     }
+    setShowRequired(false)
     if (last) finish()
     else setStep(step + 1)
   }
@@ -107,9 +116,18 @@ export function OnboardingWizard() {
             </h2>
             <p className="mt-1 text-fg-muted">{STEPS[step].description}</p>
             <div className="mt-6">
-              {step === 0 && <BusinessDetailsForm showRequired={showRequired} />}
-              {step === 1 && <InvoiceDefaultsForm />}
-              {step === 2 && <PaymentDetailsForm />}
+              {step === 0 && (
+                <CountryField
+                  error={
+                    showRequired && !country
+                      ? 'Choose your country, or “Somewhere else”.'
+                      : undefined
+                  }
+                />
+              )}
+              {step === 1 && <BusinessDetailsForm showRequired={showRequired} />}
+              {step === 2 && <InvoiceDefaultsForm showCountry={false} />}
+              {step === 3 && <PaymentDetailsForm />}
             </div>
           </div>
 

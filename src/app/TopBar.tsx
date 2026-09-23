@@ -39,7 +39,8 @@ export function TopBar({ theme, onToggleTheme, onFixIssue }: TopBarProps) {
         <span className="grid size-10 place-items-center rounded-md bg-flame text-ink">
           <CraneMark className="w-7" strokeWidth={1.25} />
         </span>
-        <span className="font-display text-lg font-semibold tracking-tight">Paperless</span>
+        {/* The page's main heading, so every view has one (panels add their own below). */}
+        <h1 className="font-display text-lg font-semibold tracking-tight">Paperless</h1>
       </div>
 
       {invoice && badge && (

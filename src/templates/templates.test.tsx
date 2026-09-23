@@ -157,6 +157,33 @@ describe.each(TEMPLATE_IDS)('%s template', (templateId) => {
     }
   })
 
+  it('prints the title, tax number label, payment methods and amount in words, on one page', async () => {
+    const invoice = createSampleInvoice({
+      templateId,
+      title: 'Tax invoice',
+      taxIdLabel: 'TRN',
+      amountInWords: true,
+      currency: 'AED',
+      locale: 'en-AE',
+    })
+    invoice.from.taxId = '100123456700003'
+    const { pages, text, info } = await render(invoice, `${templateId}-tax-invoice`, {
+      ...payment,
+      methods: ['bank', 'card', 'cash', 'cheque'],
+    })
+
+    expect(pages).toHaveLength(1)
+    expectPrinted(text, 'Tax invoice')
+    expect(text).toContain('TRN: 100123456700003')
+    expect(text).toContain('Accepted: Bank transfer · Card · Cash · Cheque')
+    expect(text).toContain('Cheques payable to Acme Studio')
+    expectPrinted(
+      text,
+      'Amount in words: Four thousand two hundred forty-seven dirhams and seventy-six fils only',
+    )
+    expect(info.Title).toBe('Tax invoice INV-2026-0042')
+  })
+
   it('leaves the QR code off when there’s nothing to pay', async () => {
     const { text } = await render(
       createSampleInvoice({ templateId, amountPaid: '99999' }),

@@ -25,6 +25,26 @@ describe('buildInvoiceViewModel', () => {
     ])
   })
 
+  it('prints the invoice title, tax number label and total in words', () => {
+    const plain = buildInvoiceViewModel(createSampleInvoice())
+    expect(plain).toMatchObject({ title: 'Invoice', totalInWords: null })
+    expect(plain.from.taxIdLabel).toBe('EIN')
+
+    const tax = buildInvoiceViewModel(
+      createSampleInvoice({ title: 'Tax invoice', taxIdLabel: 'TRN', amountInWords: true }),
+    )
+    expect(tax).toMatchObject({
+      title: 'Tax invoice',
+      totalInWords: 'Four thousand two hundred forty-seven US dollars and seventy-six cents',
+    })
+    expect(tax.to.taxIdLabel).toBe('TRN')
+
+    // Blank labels fall back to sensible words rather than printing nothing.
+    const blank = buildInvoiceViewModel(createSampleInvoice({ title: '', taxIdLabel: '' }))
+    expect(blank.title).toBe('Invoice')
+    expect(blank.from.taxIdLabel).toBe('Tax ID')
+  })
+
   it('formats each line', () => {
     const [first, , third] = buildInvoiceViewModel(createSampleInvoice()).lines
     expect(first).toEqual({

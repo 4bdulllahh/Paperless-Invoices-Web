@@ -4,6 +4,7 @@ import {
   createLineItem,
   duplicateInvoice,
   emptyParty,
+  followDefaults,
   isPristineDraft,
   sameParty,
 } from './draft'
@@ -22,6 +23,10 @@ const settings: Settings = {
   numberPattern: '{YY}-{###}',
   nextSequence: 7,
   templateId: 'classic',
+  country: 'GB',
+  documentTitle: 'Tax invoice',
+  taxIdLabel: 'VAT reg. no.',
+  amountInWords: true,
 }
 
 describe('createInvoiceDraft', () => {
@@ -169,5 +174,82 @@ describe('duplicateInvoice', () => {
       business,
     })
     expect(fixed.dueDate).toBe('2026-11-02')
+  })
+})
+
+describe('followDefaults', () => {
+  const draft = createInvoiceDraft({
+    id: 'inv',
+    lineId: 'line',
+    today: '2026-09-23',
+    settings,
+    business: emptyParty(),
+  })
+
+  it('copies the invoice conventions into new drafts', () => {
+    expect(draft).toMatchObject({
+      title: 'Tax invoice',
+      taxIdLabel: 'VAT reg. no.',
+      amountInWords: true,
+    })
+  })
+
+  it('moves every field still at the old default to the new one', () => {
+    const after = {
+      ...settings,
+      currency: 'EUR',
+      locale: 'en-IE',
+      taxMode: 'exclusive' as const,
+      taxLabel: 'Sales tax',
+      templateId: 'bold' as const,
+      documentTitle: 'Invoice',
+      taxIdLabel: 'VAT no.',
+      amountInWords: false,
+      paymentTermsDays: 14,
+      numberPattern: 'A-{####}',
+      nextSequence: 9,
+      defaultTaxRate: '23',
+    }
+    expect(followDefaults(draft, settings, after)).toMatchObject({
+      currency: 'EUR',
+      locale: 'en-IE',
+      taxMode: 'exclusive',
+      taxLabel: 'Sales tax',
+      templateId: 'bold',
+      title: 'Invoice',
+      taxIdLabel: 'VAT no.',
+      amountInWords: false,
+      dueDate: '2026-10-07',
+      number: 'A-0009',
+      items: [{ taxRate: '23' }],
+    })
+  })
+
+  it('leaves what was changed on the invoice itself', () => {
+    const edited = {
+      ...draft,
+      currency: 'CHF',
+      dueDate: '2026-12-31',
+      items: [{ ...draft.items[0], taxRate: '5' }],
+    }
+    const next = followDefaults(edited, settings, {
+      ...settings,
+      currency: 'EUR',
+      paymentTermsDays: 7,
+      defaultTaxRate: '23',
+      templateId: 'minimal',
+    })
+    expect(next).toMatchObject({
+      currency: 'CHF',
+      dueDate: '2026-12-31',
+      items: [{ taxRate: '5' }],
+      templateId: 'minimal',
+    })
+  })
+
+  it('returns the same invoice when nothing applies', () => {
+    expect(followDefaults(draft, settings, { ...settings })).toBe(draft)
+    const custom = { ...draft, items: [{ ...draft.items[0], taxRate: '5' }] }
+    expect(followDefaults(custom, settings, { ...settings, defaultTaxRate: '10' })).toBe(custom)
   })
 })

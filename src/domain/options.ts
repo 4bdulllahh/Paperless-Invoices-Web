@@ -1,4 +1,5 @@
 import { formatDate, formatMoney } from './format'
+import type { TemplateId } from './schema'
 
 /** Choices offered in onboarding and settings, labelled in the user's own language. */
 
@@ -45,6 +46,20 @@ export const COMMON_LOCALES = [
   'ja-JP',
   'zh-CN',
 ] as const
+
+/** Template names and what sets each apart, for pickers. */
+export const TEMPLATE_OPTIONS: readonly {
+  value: TemplateId
+  label: string
+  description: string
+}[] = [
+  { value: 'modern', label: 'Modern', description: 'Dark header, rounded panels' },
+  { value: 'classic', label: 'Classic', description: 'Serif letterhead, ruled table' },
+  { value: 'minimal', label: 'Minimal', description: 'Lots of white space' },
+  { value: 'bold', label: 'Bold', description: 'Big orange header' },
+  { value: 'corporate', label: 'Corporate', description: 'Details in a sidebar' },
+  { value: 'compact', label: 'Compact', description: 'Dense, for long item lists' },
+]
 
 /** 0 is "due on receipt"; the rest are "Net N" terms. */
 export const PAYMENT_TERMS = [0, 7, 14, 15, 30, 45, 60, 90] as const

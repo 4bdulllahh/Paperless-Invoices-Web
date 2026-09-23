@@ -11,7 +11,7 @@ import {
   partyLines,
   type TemplateProps,
 } from './layout'
-import { LogoImage, PageFooter, PartyBlock, PaymentAndNotes } from './shared'
+import { LogoImage, PageFooter, PartyBlock, PaymentAndNotes, TotalInWords } from './shared'
 
 const RULE = '#8a847b'
 
@@ -98,6 +98,8 @@ const s = StyleSheet.create({
     borderTopColor: INK,
   },
   balanceText: { fontWeight: 700, fontSize: 11 },
+  words: { marginTop: 12, fontSize: 8.5, fontStyle: 'italic' },
+  wordsLabel: { fontWeight: 700 },
   footer: {
     position: 'absolute',
     bottom: 28,
@@ -131,7 +133,7 @@ export function ClassicTemplate({ view, logo, payment, qr }: TemplateProps) {
         <View style={s.thinRule} />
       </View>
 
-      <Text style={s.title}>Invoice</Text>
+      <Text style={s.title}>{view.title}</Text>
 
       <View style={s.details}>
         <View style={s.billTo}>
@@ -183,6 +185,7 @@ export function ClassicTemplate({ view, logo, payment, qr }: TemplateProps) {
             payment={payment}
             qr={qr}
             notes={view.notes}
+            payableTo={view.from.name}
             headingStyle={s.heading}
             textStyle={s.body}
             linkStyle={s.link}
@@ -204,6 +207,8 @@ export function ClassicTemplate({ view, logo, payment, qr }: TemplateProps) {
           </View>
         </View>
       </View>
+
+      <TotalInWords text={view.totalInWords} style={s.words} labelStyle={s.wordsLabel} />
 
       <PageFooter number={view.number} style={s.footer} />
     </Page>

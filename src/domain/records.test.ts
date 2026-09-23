@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { emptyParty } from './draft'
-import { businessIssues, logoSchema, paymentLinkIssue } from './records'
+import {
+  businessIssues,
+  emptyPaymentDetails,
+  logoSchema,
+  paymentDetailsSchema,
+  paymentLinkIssue,
+} from './records'
 
 describe('businessIssues', () => {
   it('requires a name', () => {
@@ -39,5 +45,16 @@ describe('logoSchema', () => {
       logoSchema.safeParse({ ...png, dataUrl: 'data:image/svg+xml;base64,AAAA' }).success,
     ).toBe(false)
     expect(logoSchema.safeParse({ ...png, width: 0 }).success).toBe(false)
+  })
+})
+
+describe('paymentDetailsSchema', () => {
+  it('gives profiles saved before 1.1 no payment methods, and checks the ones it gets', () => {
+    const { methods: _, ...older } = emptyPaymentDetails()
+    expect(paymentDetailsSchema.parse(older).methods).toEqual([])
+    expect(
+      paymentDetailsSchema.safeParse({ ...emptyPaymentDetails(), methods: ['cash', 'barter'] })
+        .success,
+    ).toBe(false)
   })
 })

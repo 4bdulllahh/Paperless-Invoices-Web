@@ -1,22 +1,23 @@
-import { LoaderCircle, TriangleAlert } from 'lucide-react'
+import {
+  ChevronDown,
+  LoaderCircle,
+  Maximize2,
+  MoveHorizontal,
+  TriangleAlert,
+  ZoomIn,
+  ZoomOut,
+} from 'lucide-react'
+import { useRef } from 'react'
 import { CraneMark } from '../../components/brand/CraneMark'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
-import { SegmentedControl } from '../../components/ui/SegmentedControl'
+import { TEMPLATE_OPTIONS } from '../../domain/options'
 import type { TemplateId } from '../../domain/schema'
 import { cn } from '../../lib/cn'
 import { useDraftStore } from '../../storage/stores'
 import { useLivePdfPreview } from './useLivePdfPreview'
-
-const TEMPLATE_OPTIONS = [
-  { value: 'modern', label: 'Modern' },
-  { value: 'classic', label: 'Classic' },
-  { value: 'minimal', label: 'Minimal' },
-] as const
-
-/** Each page is scaled so a whole A4 page fits the pane; longer invoices scroll page by page. */
-const PAGE_SIZE = 'w-[min(100cqw,calc(100cqh*210/297))]'
+import { MAX_ZOOM, MIN_ZOOM, usePreviewZoom } from './usePreviewZoom'
 
 /**
  * The real PDF, redrawn as the invoice changes: exactly what will be downloaded.
@@ -29,10 +30,12 @@ export function PreviewPane({ className }: { className?: string }) {
   const updateInvoice = useDraftStore((state) => state.updateInvoice)
   const setTemplate = (templateId: TemplateId) =>
     updateInvoice((invoice) => ({ ...invoice, templateId }))
-  const { pages, status, retry } = useLivePdfPreview()
+  const pane = useRef<HTMLDivElement>(null)
+  const zoom = usePreviewZoom(pane)
+  const { pages, status, retry } = useLivePdfPreview(zoom.resolution)
 
   return (
-    <Card className={cn('flex min-h-0 flex-col overflow-hidden', className)}>
+    <Card className={cn('relative flex min-h-0 flex-col overflow-hidden', className)}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3 sm:px-5">
         <div className="flex items-center gap-2">
           <h2 className="font-display text-lg font-semibold tracking-tight">Preview</h2>
@@ -48,18 +51,36 @@ export function PreviewPane({ className }: { className?: string }) {
             {status === 'loading' ? 'Preparing preview…' : 'Updating…'}
           </span>
         </div>
-        <SegmentedControl
-          label="Invoice template"
-          options={TEMPLATE_OPTIONS}
-          value={template}
-          onChange={setTemplate}
-          size="sm"
-        />
+        <label className="relative flex items-center">
+          <span className="sr-only">Invoice template</span>
+          <select
+            value={template}
+            onChange={(e) => setTemplate(e.target.value as TemplateId)}
+            className="h-9 cursor-pointer appearance-none rounded-full border border-line-strong bg-surface pr-9 pl-4 text-sm font-medium text-fg hover:bg-surface-muted focus:border-accent focus:outline-none"
+          >
+            {TEMPLATE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            className="pointer-events-none absolute right-3 size-4 text-fg-subtle"
+            aria-hidden="true"
+          />
+        </label>
       </div>
 
       <div
+        ref={pane}
+        // Focusable, so keyboard users can scroll a zoomed-in page with the arrow keys.
+        tabIndex={0}
+        role="region"
+        aria-label="Invoice preview"
         aria-busy={status === 'loading' || status === 'updating'}
-        className="[container-type:size] min-h-0 flex-1 overflow-y-auto overscroll-contain bg-surface-sunken p-4 sm:p-6"
+        // Pinch-zooming is handled here, so the browser only pans.
+        style={{ touchAction: 'pan-x pan-y' }}
+        className="[container-type:size] min-h-0 flex-1 overflow-auto overscroll-contain bg-surface-sunken p-4 pb-20 sm:p-6 sm:pb-20"
       >
         {status === 'error' && (
           <div
@@ -73,7 +94,8 @@ export function PreviewPane({ className }: { className?: string }) {
             </Button>
           </div>
         )}
-        <div className="flex flex-col items-center gap-4">
+        {/* At least as wide as the pane (centred), wider when zoomed in (scrolls sideways). */}
+        <div className="mx-auto flex w-fit min-w-full flex-col items-center gap-4">
           {pages ? (
             pages.map((page, index) => (
               <img
@@ -82,16 +104,61 @@ export function PreviewPane({ className }: { className?: string }) {
                 width={page.width}
                 height={page.height}
                 alt={`Invoice ${number}, page ${index + 1} of ${pages.length}`}
-                className={cn(
-                  PAGE_SIZE,
-                  'h-auto rounded-sm bg-white shadow-elev-2 ring-1 ring-ink/5 dark:ring-cream/15',
-                )}
+                style={{ width: zoom.pageWidth }}
+                className="h-auto max-w-none rounded-sm bg-white shadow-elev-2 ring-1 ring-ink/5 dark:ring-cream/15"
               />
             ))
           ) : (
-            <SkeletonPage template={template} />
+            <SkeletonPage template={template} width={zoom.pageWidth} />
           )}
         </div>
+      </div>
+
+      <div
+        role="toolbar"
+        aria-label="Zoom"
+        className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-0.5 rounded-full border border-line bg-surface/95 p-1 shadow-elev-2 backdrop-blur-sm"
+      >
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          aria-label="Zoom out"
+          title="Zoom out (Ctrl + scroll)"
+          disabled={zoom.zoom <= MIN_ZOOM + 0.01}
+          onClick={zoom.zoomOut}
+        >
+          <ZoomOut />
+        </Button>
+        <button
+          type="button"
+          onClick={zoom.fitWidth}
+          title="Fit to width"
+          aria-label={`Zoom ${Math.round(zoom.zoom * 100)}%, fit to width`}
+          className="h-8 min-w-14 cursor-pointer rounded-full px-2 text-sm font-medium text-fg tabular-nums hover:bg-surface-muted"
+        >
+          {Math.round(zoom.zoom * 100)}%
+        </button>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          aria-label="Zoom in"
+          title="Zoom in (Ctrl + scroll)"
+          disabled={zoom.zoom >= MAX_ZOOM - 0.01}
+          onClick={zoom.zoomIn}
+        >
+          <ZoomIn />
+        </Button>
+        <span className="mx-1 h-5 w-px bg-line" aria-hidden="true" />
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          aria-pressed={zoom.fitPage}
+          aria-label={zoom.fitPage ? 'Fit to width' : 'Fit whole page'}
+          title={zoom.fitPage ? 'Fit to width' : 'Fit whole page'}
+          onClick={zoom.toggleFitPage}
+        >
+          {zoom.fitPage ? <MoveHorizontal /> : <Maximize2 />}
+        </Button>
       </div>
     </Card>
   )
@@ -104,7 +171,7 @@ function Bar({ w, className }: { w: string; className?: string }) {
   )
 }
 
-function SkeletonPage({ template }: { template: TemplateId }) {
+function SkeletonPage({ template, width }: { template: TemplateId; width: string }) {
   const modern = template === 'modern'
   const classic = template === 'classic'
 
@@ -112,8 +179,8 @@ function SkeletonPage({ template }: { template: TemplateId }) {
     <div
       role="img"
       aria-label="Loading preview"
+      style={{ width }}
       className={cn(
-        PAGE_SIZE,
         '@container aspect-[210/297] animate-pulse overflow-hidden rounded-sm bg-white text-ink shadow-elev-2 ring-1 ring-ink/5 dark:ring-cream/15',
       )}
     >

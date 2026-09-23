@@ -1,4 +1,10 @@
-import { createInvoiceDraft, duplicateInvoice, emptyParty, sameParty } from '../domain/draft'
+import {
+  createInvoiceDraft,
+  duplicateInvoice,
+  emptyParty,
+  followDefaults,
+  sameParty,
+} from '../domain/draft'
 import { todayIso } from '../domain/dates'
 import { DEFAULT_NUMBER_PATTERN } from '../domain/numbering'
 import {
@@ -103,19 +109,38 @@ export const initialSettings: Settings = {
   currency: 'USD',
   locale: browserLocale(),
   taxMode: 'exclusive',
-  taxLabel: 'Tax',
+  // Left for the user (or their country) to fill in.
+  taxLabel: '',
   defaultTaxRate: '',
   paymentTermsDays: 14,
   numberPattern: DEFAULT_NUMBER_PATTERN,
   nextSequence: 1,
   templateId: 'modern',
+  country: '',
+  documentTitle: 'Invoice',
+  taxIdLabel: 'Tax ID',
+  amountInWords: false,
 }
 
 export const useSettingsStore = createPersistedStore(
   { name: 'paperless:settings', version: 1, schema: settingsSchema, backend: localBackend },
   initialSettings,
   (set, get) => ({
-    updateSettings: (patch: Partial<Settings>) => set(patch),
+    /**
+     * Change the defaults. The current draft follows along, field by field, until it has been
+     * edited on the invoice itself. A draft already downloaded stays as it was sent.
+     */
+    updateSettings: (patch: Partial<Settings>) => {
+      const before = get()
+      set(patch)
+      const after = get()
+      const issued = new Set(useHistoryStore.getState().entries.map((e) => e.invoice.id))
+      useDraftStore
+        .getState()
+        .updateInvoice((invoice) =>
+          issued.has(invoice.id) ? invoice : followDefaults(invoice, before, after),
+        )
+    },
     /** Use the next invoice number. Called when an invoice is downloaded. */
     claimSequence: (): number => {
       const sequence = get().nextSequence

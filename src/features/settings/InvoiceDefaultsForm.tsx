@@ -1,4 +1,5 @@
 import { useMemo, type ReactNode } from 'react'
+import { CheckboxField } from '../../components/ui/Checkbox'
 import { CommitTextField } from '../../components/ui/CommitTextField'
 import { SelectField, TextField } from '../../components/ui/Field'
 import { SegmentedControl } from '../../components/ui/SegmentedControl'
@@ -9,19 +10,16 @@ import {
   formatSample,
   localeOptions,
   paymentTermsOptions,
+  TEMPLATE_OPTIONS,
 } from '../../domain/options'
-import { percentSchema, TEMPLATE_IDS, type TaxMode, type TemplateId } from '../../domain/schema'
+import { percentSchema, type TaxMode, type TemplateId } from '../../domain/schema'
 import { useSettingsStore } from '../../storage/stores'
+import { CountryField } from './CountryField'
 
 const TAX_MODE_OPTIONS = [
   { value: 'exclusive', label: 'Tax added on top' },
   { value: 'inclusive', label: 'Tax included' },
 ] as const satisfies readonly { value: TaxMode; label: string }[]
-
-const TEMPLATE_OPTIONS = TEMPLATE_IDS.map((id) => ({
-  value: id,
-  label: id[0].toUpperCase() + id.slice(1),
-}))
 
 function validateRate(text: string) {
   if (!percentSchema.safeParse(text).success) return 'Enter a percentage, e.g. 20 or 8.875.'
@@ -48,8 +46,11 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
   )
 }
 
-/** Defaults for new invoices. Saved as the user types; invalid values are explained, not saved. */
-export function InvoiceDefaultsForm() {
+/**
+ * Defaults for new invoices. Saved as the user types; invalid values are explained, not saved.
+ * The setup wizard asks for the country on its own step, so it can leave that group out.
+ */
+export function InvoiceDefaultsForm({ showCountry = true }: { showCountry?: boolean }) {
   const settings = useSettingsStore()
   const { updateSettings } = settings
   const today = todayIso()
@@ -58,6 +59,12 @@ export function InvoiceDefaultsForm() {
 
   return (
     <div className="flex flex-col gap-7">
+      {showCountry && (
+        <Group title="Country">
+          <CountryField hint="Changing it resets the currency, format and tax to that country’s." />
+        </Group>
+      )}
+
       <Group title="Money & format">
         <div className="grid gap-4 sm:grid-cols-2">
           <SelectField
@@ -114,6 +121,13 @@ export function InvoiceDefaultsForm() {
             onCommit={(defaultTaxRate) => updateSettings({ defaultTaxRate: defaultTaxRate.trim() })}
           />
         </div>
+        <TextField
+          label="Tax number label"
+          placeholder="VAT no., GSTIN, TRN, ABN…"
+          hint="Printed before your tax number (and your client’s), e.g. “TRN: 100…”."
+          value={settings.taxIdLabel}
+          onChange={(e) => updateSettings({ taxIdLabel: e.target.value })}
+        />
         <div className="flex flex-col gap-1.5">
           <span className="text-sm font-medium text-fg-muted">Prices you enter have</span>
           <SegmentedControl
@@ -158,13 +172,32 @@ export function InvoiceDefaultsForm() {
         </div>
       </Group>
 
-      <Group title="Template">
-        <SegmentedControl
-          label="Default template"
-          options={TEMPLATE_OPTIONS}
-          value={settings.templateId}
-          onChange={(templateId: TemplateId) => updateSettings({ templateId })}
-          className="self-start"
+      <Group title="On the invoice">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <TextField
+            label="Title"
+            placeholder="Invoice"
+            hint="Some countries require “Tax invoice”."
+            value={settings.documentTitle}
+            onChange={(e) => updateSettings({ documentTitle: e.target.value })}
+          />
+          <SelectField
+            label="Template"
+            value={settings.templateId}
+            onChange={(e) => updateSettings({ templateId: e.target.value as TemplateId })}
+          >
+            {TEMPLATE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label} — {o.description}
+              </option>
+            ))}
+          </SelectField>
+        </div>
+        <CheckboxField
+          label="Write the total in words"
+          hint="e.g. “Four thousand two hundred US dollars only”, as many countries expect."
+          checked={settings.amountInWords}
+          onChange={(e) => updateSettings({ amountInWords: e.target.checked })}
         />
       </Group>
     </div>

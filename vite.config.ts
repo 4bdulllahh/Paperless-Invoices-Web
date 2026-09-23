@@ -31,33 +31,15 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    // Installable, and works offline: the service worker keeps a copy of the whole app,
-    // including the PDF engine and fonts, so invoices can be made with no connection.
+    // Works offline: the service worker keeps a copy of the whole app, including the PDF engine
+    // and fonts, so invoices can be made with no connection. There is deliberately no web app
+    // manifest: Paperless is a website, not an installable app (a phone app may come later).
     VitePWA({
       // New versions wait for the user to reload (see UpdatePrompt), so a form is never
       // swapped out mid-edit.
       registerType: 'prompt',
       injectRegister: false,
-      // The icons are already picked up by globPatterns.
-      includeManifestIcons: false,
-      manifest: {
-        name: 'Paperless — Free Invoice Generator',
-        short_name: 'Paperless',
-        description:
-          'Free, private invoicing that runs entirely in your browser. No account, no server.',
-        lang: 'en',
-        start_url: '/',
-        scope: '/',
-        display: 'standalone',
-        theme_color: '#f2eee4',
-        background_color: '#fffcf2',
-        categories: ['business', 'finance', 'productivity'],
-        icons: [
-          { src: 'pwa-192.png', sizes: '192x192', type: 'image/png' },
-          { src: 'pwa-512.png', sizes: '512x512', type: 'image/png' },
-          { src: 'pwa-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-        ],
-      },
+      manifest: false,
       workbox: {
         globPatterns: ['**/*.{js,mjs,css,html,svg,png,woff,woff2}'],
         // The PDF engine and pdf.js worker are ~1.3 MB each.

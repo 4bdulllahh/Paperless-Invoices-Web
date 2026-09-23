@@ -20,7 +20,10 @@ describe('InvoiceDefaultsForm', () => {
     type('Tax name', 'VAT')
     type('Payment terms', '30')
     fireEvent.click(screen.getByRole('radio', { name: 'Tax included' }))
-    fireEvent.click(screen.getByRole('radio', { name: 'Classic' }))
+    type('Template', 'corporate')
+    type('Tax number label', 'VAT reg. no.')
+    type('Title', 'Tax invoice')
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Write the total in words' }))
 
     expect(useSettingsStore.getState()).toMatchObject({
       currency: 'GBP',
@@ -28,8 +31,28 @@ describe('InvoiceDefaultsForm', () => {
       taxLabel: 'VAT',
       paymentTermsDays: 30,
       taxMode: 'inclusive',
-      templateId: 'classic',
+      templateId: 'corporate',
+      taxIdLabel: 'VAT reg. no.',
+      documentTitle: 'Tax invoice',
+      amountInWords: true,
     })
+  })
+
+  it('resets currency and tax when the country changes', () => {
+    render(<InvoiceDefaultsForm />)
+    type('Country your business is in', 'IN')
+    expect(useSettingsStore.getState()).toMatchObject({
+      currency: 'INR',
+      taxLabel: 'GST',
+      defaultTaxRate: '18',
+      taxIdLabel: 'GSTIN',
+    })
+    expect(screen.getByLabelText('Currency')).toHaveValue('INR')
+    expect(screen.getByText(/CGST \+ SGST/)).toBeInTheDocument()
+
+    type('Country your business is in', 'OTHER')
+    expect(useSettingsStore.getState()).toMatchObject({ country: 'OTHER', currency: 'INR' })
+    expect(screen.getByText(/Choose your currency and tax details below/)).toBeInTheDocument()
   })
 
   it('previews how amounts and dates will look', () => {

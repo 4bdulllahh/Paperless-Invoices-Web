@@ -30,7 +30,7 @@ export function partyLines(party: PartyView): string[] {
     ...party.addressLines,
     party.email,
     party.phone,
-    party.taxId && `Tax ID: ${party.taxId}`,
+    party.taxId && `${party.taxIdLabel}: ${party.taxId}`,
   ].filter(Boolean)
 }
 

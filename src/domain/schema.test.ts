@@ -16,6 +16,15 @@ describe('invoiceSchema', () => {
     )
   })
 
+  it('fills in fields added in 1.1 for invoices saved before', () => {
+    const { title: _t, taxIdLabel: _l, amountInWords: _w, ...older } = createSampleInvoice()
+    expect(invoiceSchema.parse(older)).toMatchObject({
+      title: 'Invoice',
+      taxIdLabel: 'Tax ID',
+      amountInWords: false,
+    })
+  })
+
   it('rejects unknown templates', () => {
     const invoice = { ...createSampleInvoice(), templateId: 'fancy' }
     expect(invoiceSchema.safeParse(invoice).success).toBe(false)

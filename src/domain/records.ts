@@ -13,6 +13,16 @@ import {
  * and imported backups are checked against before use.
  */
 
+/** Ways a client can pay, printed on invoices as "Accepted: Bank transfer · Card…". */
+export const PAYMENT_METHODS = ['bank', 'card', 'cash', 'cheque'] as const
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  bank: 'Bank transfer',
+  card: 'Card',
+  cash: 'Cash',
+  cheque: 'Cheque',
+}
+
 /** What the QR code on an invoice does when scanned, if there is one. */
 export const QR_METHODS = ['link', 'upi', 'sepa', 'none'] as const
 
@@ -32,6 +42,8 @@ export const paymentDetailsSchema = z.object({
   iban: z.string().trim(),
   /** Optional within the SEPA area. */
   bic: z.string().trim(),
+  /** Accepted payment methods (added in 1.1; the default keeps older profiles valid). */
+  methods: z.array(z.enum(PAYMENT_METHODS)).default([]),
 })
 
 export const emptyPaymentDetails = (): PaymentDetails => ({
@@ -41,6 +53,7 @@ export const emptyPaymentDetails = (): PaymentDetails => ({
   upiId: '',
   iban: '',
   bic: '',
+  methods: [],
 })
 
 export const businessProfileSchema = z.object({
@@ -89,6 +102,11 @@ export const settingsSchema = z.object({
   /** Sequence number the next downloaded invoice will use. */
   nextSequence: z.number().int().min(1),
   templateId: z.enum(TEMPLATE_IDS),
+  /** Added in 1.1 (defaults keep older settings valid). ISO code, e.g. "AE"; empty until chosen. */
+  country: z.string().default(''),
+  documentTitle: z.string().trim().default('Invoice'),
+  taxIdLabel: z.string().trim().default('Tax ID'),
+  amountInWords: z.boolean().default(false),
 })
 
 export const clientSchema = partySchema.extend({
@@ -123,6 +141,7 @@ export const historyEntrySchema = z.object({
 
 export type PaymentDetails = z.infer<typeof paymentDetailsSchema>
 export type QrMethod = (typeof QR_METHODS)[number]
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number]
 export type BusinessProfile = z.infer<typeof businessProfileSchema>
 export type Logo = z.infer<typeof logoSchema>
 export type Settings = z.infer<typeof settingsSchema>

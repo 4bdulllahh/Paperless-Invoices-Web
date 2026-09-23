@@ -144,7 +144,7 @@ export function EditorPane({ className, onEditProfile }: EditorPaneProps) {
         </Collapsible>
 
         <Collapsible
-          title="Number, dates & currency"
+          title="Title, number & dates"
           id={sectionElementId('invoice')}
           icon={<CalendarDays />}
           meta={`Due ${formatDate(invoice.dueDate, invoice.locale)}`}

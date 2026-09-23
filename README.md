@@ -4,18 +4,20 @@ Free, private invoicing that runs entirely in your browser.
 
 Create professional A4 invoices, preview them live across multiple templates, add a payment QR code, and download a crisp PDF. No account, no server and no database. Your business details and invoice history are stored only on your device.
 
-**Live:** https://paperless-bay-zeta.vercel.app · **Version:** 1.0.0
+**Live:** https://paperless-bay-zeta.vercel.app · **Version:** 1.1.0
 
 ![The Paperless workspace: invoice editor on the left, live PDF preview on the right](docs/screenshots/workspace-light.webp)
 
 ## Features
 
-- **Live, exact preview.** Three A4 templates (Modern, Classic, Minimal), redrawn as you type from the same PDF you download.
+- **Live, exact preview.** Six A4 templates (Modern, Classic, Minimal, Bold, Corporate, Compact), redrawn as you type from the same PDF you download. Zoom in with the buttons, Ctrl + scroll or a pinch.
+- **Set up for your country.** Pick your country and Paperless fills in the currency, number and date format, what tax is called and its standard rate, how tax numbers are labelled (TRN, GSTIN, ABN, VAT no.…) and "Tax invoice" where the law asks for it, with a note where official e-invoicing is required. 63 countries, all editable.
 - **Correct maths.** Per-line and invoice discounts, several tax rates, tax-inclusive or tax-exclusive prices, partial payments, 160+ currencies, all calculated exactly with no floating point.
-- **Get paid faster.** Payment instructions plus a QR code: a payment link, UPI for rupee invoices or SEPA for euro invoices.
+- **Get paid faster.** The payment methods you accept (bank transfer, card, cash, cheque), payment instructions and a QR code: a payment link, UPI for rupee invoices or SEPA for euro invoices.
+- **Total in words**, e.g. "Three thousand two hundred forty-seven US dollars and seventy-six cents", in lakhs and crores for rupees and with "only" where that's customary.
 - **History.** Every downloaded invoice is kept as sent, with paid, unpaid and overdue tracking, search, re-download and duplicate.
 - **Saved clients** fill in "Bill to" for you, and invoice numbers count up on their own.
-- **Works offline** and installs like an app. Light and dark themes, phone to desktop.
+- **Works offline** once visited. Light and dark themes, phone to desktop.
 - **Private by design.** No account, no server, no tracking. Back up and restore your data as a file.
 
 | Dark theme, Classic template                        | Invoice history                           |
@@ -44,7 +46,7 @@ Paperless has no backend. Your business details, clients, invoices and logo are 
 | Data      | Zustand + Zod, localStorage and IndexedDB                     |
 | PDF       | @react-pdf/renderer in a Web Worker, previewed with pdf.js    |
 | QR codes  | qrcode, drawn as vector shapes in the PDF                     |
-| Offline   | vite-plugin-pwa (Workbox): installable, precached app shell   |
+| Offline   | vite-plugin-pwa (Workbox) service worker, precached app       |
 
 ## How totals are calculated
 
@@ -84,7 +86,7 @@ IBANs are checked with the mod-97 checksum before they're saved. The code is lef
 
 ## Works offline
 
-Paperless is an installable web app. After the first visit, a service worker keeps a copy of the whole app, including the PDF engine and fonts, so you can write, preview and download invoices with no connection. New versions never interrupt you mid-edit: a small prompt offers to reload when one is ready.
+Paperless is a website, deliberately not an installable app (a phone app may come later). After the first visit, a service worker keeps a copy of the whole app, including the PDF engine and fonts, so you can write, preview and download invoices with no connection. New versions never interrupt you mid-edit: a small prompt offers to reload when one is ready.
 
 ## Security
 
@@ -158,6 +160,7 @@ npm run dev        # start the dev server at http://localhost:5173
 - [x] **M8** Export & history
 - [x] **M9** Polish, accessibility & PWA
 - [x] **M10** Production release (v1.0.0)
+- [x] **v1.1** Country presets, six templates, payment methods, amount in words, preview zoom
 
 ## License
 

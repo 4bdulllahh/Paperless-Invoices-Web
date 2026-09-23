@@ -10,14 +10,13 @@ import {
   itemColumns,
   MUTED,
   OLIVE,
-  PAPER_TINT,
-  SAND,
   type TemplateProps,
 } from './layout'
 import { LogoImage, PageFooter, PartyBlock, PaymentAndNotes, TotalInWords } from './shared'
 
-const PAD = 40
+const PAD = 44
 
+/** Bold: a full-width flame header with an oversized title, and an ink totals block. */
 const s = StyleSheet.create({
   page: {
     fontFamily: FONTS.sans,
@@ -27,105 +26,91 @@ const s = StyleSheet.create({
     paddingBottom: 56,
     paddingHorizontal: PAD,
   },
-  band: {
-    backgroundColor: INK,
+  header: {
+    backgroundColor: FLAME,
     marginTop: -PAD,
     marginHorizontal: -PAD,
     paddingHorizontal: PAD,
-    paddingTop: 34,
-    paddingBottom: 30,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    paddingTop: 38,
+    paddingBottom: 26,
   },
-  brand: { flexDirection: 'row', alignItems: 'center', gap: 12, maxWidth: 300 },
-  logoTile: { backgroundColor: '#ffffff', borderRadius: 8, padding: 6 },
-  businessName: { fontFamily: FONTS.display, fontWeight: 700, fontSize: 15, color: CREAM },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   title: {
     fontFamily: FONTS.display,
     fontWeight: 700,
-    fontSize: 26,
-    color: CREAM,
-    textAlign: 'right',
+    fontSize: 40,
+    textTransform: 'uppercase',
+    letterSpacing: -0.5,
+    lineHeight: 1,
   },
-  number: { color: SAND, fontSize: 10, textAlign: 'right', marginTop: 2 },
-  meta: { flexDirection: 'row', gap: 10, marginTop: 22 },
-  metaCell: { flex: 1, borderRadius: 8, backgroundColor: PAPER_TINT, padding: 10 },
-  metaDue: { flex: 1.3, borderRadius: 8, backgroundColor: FLAME, padding: 10 },
+  logoTile: { backgroundColor: '#ffffff', borderRadius: 6, padding: 6 },
+  headerFacts: { flexDirection: 'row', gap: 28, marginTop: 18 },
+  factLabel: { fontSize: 7, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 2 },
+  factValue: { fontFamily: FONTS.display, fontWeight: 700, fontSize: 11 },
+  parties: { flexDirection: 'row', gap: 24, marginTop: 26 },
+  party: { flex: 1 },
   label: {
     fontSize: 7,
     color: MUTED,
     textTransform: 'uppercase',
-    letterSpacing: 0.9,
-    marginBottom: 3,
+    letterSpacing: 1,
+    marginBottom: 4,
   },
-  labelOnFlame: {
-    fontSize: 7,
-    color: INK,
-    textTransform: 'uppercase',
-    letterSpacing: 0.9,
-    marginBottom: 3,
-  },
-  metaValue: { fontFamily: FONTS.display, fontWeight: 500, fontSize: 11 },
-  metaDueValue: { fontFamily: FONTS.display, fontWeight: 700, fontSize: 14 },
-  parties: { flexDirection: 'row', gap: 24, marginTop: 24 },
-  party: { flex: 1 },
-  partyName: { fontFamily: FONTS.display, fontWeight: 700, fontSize: 11, marginBottom: 2 },
+  partyName: { fontFamily: FONTS.display, fontWeight: 700, fontSize: 12, marginBottom: 2 },
   partyLine: { color: OLIVE },
+  due: { alignItems: 'flex-end' },
+  dueAmount: { fontFamily: FONTS.display, fontWeight: 700, fontSize: 22, color: FLAME },
   table: { marginTop: 26 },
   headRow: {
     flexDirection: 'row',
-    backgroundColor: PAPER_TINT,
-    borderRadius: 6,
-    paddingVertical: 7,
-    paddingHorizontal: 10,
-  },
-  headText: { fontSize: 7, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.9 },
-  row: {
-    flexDirection: 'row',
+    backgroundColor: INK,
     paddingVertical: 8,
     paddingHorizontal: 10,
-    borderBottomWidth: 0.75,
+  },
+  headText: {
+    fontSize: 7,
+    color: CREAM,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    fontWeight: 600,
+  },
+  row: {
+    flexDirection: 'row',
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
     borderBottomColor: HAIRLINE,
   },
   amount: { fontWeight: 600 },
-  bottom: { flexDirection: 'row', gap: 28, marginTop: 18 },
+  bottom: { flexDirection: 'row', gap: 28, marginTop: 20 },
   notes: { flex: 1 },
-  heading: { fontFamily: FONTS.display, fontWeight: 700, fontSize: 9.5, marginBottom: 3 },
-  // react-pdf resolves a unitless lineHeight against this element's own fontSize, so set both.
+  heading: { fontFamily: FONTS.display, fontWeight: 700, fontSize: 10, marginBottom: 3 },
   body: { color: OLIVE, fontSize: 9, lineHeight: 1.45 },
   link: { color: INK, textDecoration: 'underline', marginTop: 3 },
-  totals: { width: 220 },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 3,
-    paddingHorizontal: 10,
-  },
-  totalLabel: { color: OLIVE },
+  totals: { width: 230, alignSelf: 'flex-start', backgroundColor: INK, padding: 14, color: CREAM },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3 },
+  totalLabel: { color: '#ccc5b9' },
   grandTotal: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: 5,
-    paddingHorizontal: 10,
-    marginTop: 3,
-    borderTopWidth: 0.75,
-    borderTopColor: SAND,
+    marginTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: OLIVE,
     fontWeight: 600,
   },
   balance: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: FLAME,
-    borderRadius: 8,
-    paddingVertical: 9,
-    paddingHorizontal: 10,
-    marginTop: 6,
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 2,
+    borderTopColor: FLAME,
   },
-  balanceText: { fontFamily: FONTS.display, fontWeight: 700, fontSize: 12 },
+  balanceText: { fontFamily: FONTS.display, fontWeight: 700, fontSize: 13, color: FLAME },
   words: { marginTop: 12, fontSize: 8.5, color: OLIVE },
-  wordsLabel: { fontWeight: 600 },
+  wordsLabel: { fontWeight: 600, color: INK },
   footer: {
     position: 'absolute',
     bottom: 24,
@@ -133,44 +118,36 @@ const s = StyleSheet.create({
     right: PAD,
     fontSize: 7.5,
     color: MUTED,
-    textAlign: 'right',
   },
 })
 
-export function ModernTemplate({ view, logo, payment, qr }: TemplateProps) {
+export function BoldTemplate({ view, logo, payment, qr }: TemplateProps) {
   const columns = itemColumns(view)
   const balance = view.totals.find((row) => row.kind === 'balance')!
   const summary = view.totals.filter((row) => row.kind !== 'balance')
 
   return (
     <Page size="A4" style={s.page}>
-      <View style={s.band}>
-        <View style={s.brand}>
+      <View style={s.header}>
+        <View style={s.headerTop}>
+          <Text style={s.title}>{view.title}</Text>
           {logo && (
             <View style={s.logoTile}>
-              <LogoImage logo={logo} maxWidth={90} maxHeight={40} />
+              <LogoImage logo={logo} maxWidth={100} maxHeight={44} />
             </View>
           )}
-          {view.from.name ? <Text style={s.businessName}>{view.from.name}</Text> : null}
         </View>
-        <View>
-          <Text style={s.title}>{view.title}</Text>
-          <Text style={s.number}>{view.number}</Text>
-        </View>
-      </View>
-
-      <View style={s.meta}>
-        <View style={s.metaCell}>
-          <Text style={s.label}>Issued</Text>
-          <Text style={s.metaValue}>{view.issueDate}</Text>
-        </View>
-        <View style={s.metaCell}>
-          <Text style={s.label}>Due</Text>
-          <Text style={s.metaValue}>{view.dueDate}</Text>
-        </View>
-        <View style={s.metaDue}>
-          <Text style={s.labelOnFlame}>Balance due</Text>
-          <Text style={s.metaDueValue}>{view.balanceDue}</Text>
+        <View style={s.headerFacts}>
+          {[
+            ['Number', view.number],
+            ['Issued', view.issueDate],
+            ['Due', view.dueDate],
+          ].map(([label, value]) => (
+            <View key={label}>
+              <Text style={s.factLabel}>{label}</Text>
+              <Text style={s.factValue}>{value}</Text>
+            </View>
+          ))}
         </View>
       </View>
 
@@ -182,6 +159,10 @@ export function ModernTemplate({ view, logo, payment, qr }: TemplateProps) {
         <View style={s.party}>
           <Text style={s.label}>Bill to</Text>
           <PartyBlock party={view.to} nameStyle={s.partyName} lineStyle={s.partyLine} />
+        </View>
+        <View style={s.due}>
+          <Text style={s.label}>{balance.label}</Text>
+          <Text style={s.dueAmount}>{view.balanceDue}</Text>
         </View>
       </View>
 

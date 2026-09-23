@@ -57,6 +57,7 @@ describe('profile store', () => {
       upiId: '',
       iban: 'DE89 3704 0044 0532 0130 00',
       bic: '',
+      methods: [],
     })
   })
 
@@ -114,6 +115,7 @@ describe('profile upgrades', () => {
       upiId: '',
       iban: '',
       bic: '',
+      methods: [],
     })
   })
 })
@@ -195,6 +197,45 @@ describe('draft store', () => {
 
     clearDraft()
     expect(useDraftStore.getState().invoice).toBeNull()
+  })
+})
+
+describe('settings follow into the draft', () => {
+  it('updates fields still at the old default, and leaves ones set on the invoice', () => {
+    useSettingsStore.getState().updateSettings({ currency: 'USD', defaultTaxRate: '5' })
+    useDraftStore.getState().startNewInvoice('2026-09-23')
+    useDraftStore.getState().updateInvoice((inv) => ({ ...inv, taxLabel: 'My tax' }))
+
+    useSettingsStore.getState().updateSettings({
+      currency: 'AED',
+      taxLabel: 'VAT',
+      defaultTaxRate: '5',
+      paymentTermsDays: 30,
+    })
+
+    expect(useDraftStore.getState().invoice).toMatchObject({
+      currency: 'AED',
+      taxLabel: 'My tax',
+      dueDate: '2026-10-23',
+      items: [{ taxRate: '5' }],
+    })
+  })
+
+  it('leaves a downloaded invoice as it was sent', () => {
+    const invoice = useDraftStore.getState().startNewInvoice('2026-09-23')
+    useHistoryStore
+      .getState()
+      .recordInvoice(invoice, { payment: emptyPaymentDetails(), logo: null })
+
+    useSettingsStore.getState().updateSettings({ currency: 'EUR' })
+
+    expect(useDraftStore.getState().invoice?.currency).toBe('USD')
+  })
+
+  it('doesn’t renumber the draft when a download uses up a number', () => {
+    const invoice = useDraftStore.getState().startNewInvoice('2026-09-23')
+    useSettingsStore.getState().claimSequence()
+    expect(useDraftStore.getState().invoice?.number).toBe(invoice.number)
   })
 })
 

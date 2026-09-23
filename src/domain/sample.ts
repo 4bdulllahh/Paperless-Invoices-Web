@@ -21,7 +21,7 @@ export function createSampleInvoice(overrides: Partial<Invoice> = {}): Invoice {
       email: 'hello@acme.studio',
       phone: '+1 555 0100',
       address: '12 Harbour Street\nBrooklyn, NY 11201\nUnited States',
-      taxId: 'EIN 12-3456789',
+      taxId: '12-3456789',
     },
     to: {
       name: 'Northwind Ltd',
@@ -60,6 +60,9 @@ export function createSampleInvoice(overrides: Partial<Invoice> = {}): Invoice {
     amountPaid: '1000',
     notes: 'Thank you for your business!',
     templateId: 'modern',
+    title: 'Invoice',
+    taxIdLabel: 'EIN',
+    amountInWords: false,
     ...overrides,
   }
 }

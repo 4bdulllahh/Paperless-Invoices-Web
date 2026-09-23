@@ -1,6 +1,6 @@
 import { Image, Link, Path, Rect, Svg, Text, View } from '@react-pdf/renderer'
 import type { PaymentQr } from '../domain/paymentQr'
-import type { Logo, PaymentDetails } from '../domain/records'
+import { PAYMENT_METHOD_LABELS, type Logo, type PaymentDetails } from '../domain/records'
 import type { PartyView } from '../domain/viewModel'
 import { INK, partyLines, type Style } from './layout'
 import { QR_QUIET_ZONE, qrMatrix, qrPath } from './qr'
@@ -66,11 +66,15 @@ export function QrCode({ value, size }: { value: string; size: number }) {
   )
 }
 
-/** Payment instructions, a clickable link and a QR code, plus notes; each only if there is one. */
+/**
+ * Accepted payment methods, instructions, a clickable link and a QR code, plus notes; each only
+ * if there is one.
+ */
 export function PaymentAndNotes({
   payment,
   qr,
   notes,
+  payableTo,
   headingStyle,
   textStyle,
   linkStyle,
@@ -78,16 +82,24 @@ export function PaymentAndNotes({
   payment: PaymentDetails
   qr: PaymentQr | null
   notes: string
+  /** Who cheques are made out to: the sender's name. */
+  payableTo: string
   headingStyle: Style
   textStyle: Style
   linkStyle: Style
 }) {
   const instructions = payment.instructions.trim()
+  const methods = payment.methods.map((method) => PAYMENT_METHOD_LABELS[method])
+  const cheques = payment.methods.includes('cheque') && payableTo
   return (
     <View style={{ gap: 14 }}>
-      {(instructions || payment.link || qr) && (
+      {(instructions || payment.link || qr || methods.length > 0) && (
         <View>
           <Text style={headingStyle}>Payment</Text>
+          {methods.length > 0 ? (
+            <Text style={textStyle}>Accepted: {methods.join(' · ')}</Text>
+          ) : null}
+          {cheques ? <Text style={textStyle}>Cheques payable to {payableTo}</Text> : null}
           {instructions ? <Text style={textStyle}>{instructions}</Text> : null}
           {payment.link ? (
             <Link src={payment.link} style={linkStyle}>
@@ -115,6 +127,25 @@ export function PaymentAndNotes({
         </View>
       ) : null}
     </View>
+  )
+}
+
+/** "Amount in words: Three thousand … only", under the totals, when the invoice asks for it. */
+export function TotalInWords({
+  text,
+  style,
+  labelStyle,
+}: {
+  text: string | null
+  style: Style
+  labelStyle: Style
+}) {
+  if (!text) return null
+  return (
+    <Text style={style} wrap={false}>
+      <Text style={labelStyle}>Amount in words: </Text>
+      {text}
+    </Text>
   )
 }
 
