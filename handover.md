@@ -32,7 +32,7 @@ Paperless is a free invoice generator that runs entirely in the browser. It's a 
 | What        | Where                                                                     |
 | ----------- | ------------------------------------------------------------------------- |
 | Repo        | `C:\Users\Computer\Documents\GitHub\Paperless`, branch `main`             |
-| Remote      | https://github.com/4bdulllahh/Paperless-Invoices-Web                               |
+| Remote      | https://github.com/4bdulllahh/Paperless-Invoices-Web                      |
 | Live site   | https://paperless-bay-zeta.vercel.app/                                    |
 | Hosting     | Vercel Hobby. Every push to `main` deploys automatically.                 |
 | CI          | GitHub Actions, `.github/workflows/ci.yml`. Runs on every push to `main`. |
