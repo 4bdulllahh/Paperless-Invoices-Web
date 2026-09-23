@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { emptyParty as party } from '../domain/draft'
+import { emptyPaymentDetails } from '../domain/records'
 import { createSampleInvoice } from '../domain/sample'
 import { clearAllData } from './backup'
 import {
@@ -164,6 +165,25 @@ describe('draft store', () => {
     expect(useSettingsStore.getState().nextSequence).toBe(12)
   })
 
+  it('opens a copy of an earlier invoice as a new draft with the next number', () => {
+    useSettingsStore.getState().updateSettings({ nextSequence: 7 })
+    useProfileStore.getState().updateBusiness({ name: 'Acme Studio (new address)' })
+    const source = createSampleInvoice()
+
+    const copy = useDraftStore.getState().duplicateIntoDraft(source, '2026-11-02')
+
+    expect(useDraftStore.getState().invoice).toBe(copy)
+    expect(copy).toMatchObject({
+      number: 'INV-2026-0007',
+      issueDate: '2026-11-02',
+      dueDate: '2026-11-16',
+      from: { name: 'Acme Studio (new address)' },
+      to: source.to,
+    })
+    expect(copy.id).not.toBe(source.id)
+    expect(useSettingsStore.getState().nextSequence).toBe(7)
+  })
+
   it('updates the draft, and does nothing without one', () => {
     const { updateInvoice, startNewInvoice, clearDraft } = useDraftStore.getState()
     updateInvoice((invoice) => ({ ...invoice, notes: 'ignored' }))
@@ -204,15 +224,18 @@ describe('clients store', () => {
 })
 
 describe('history store', () => {
+  const assets = { payment: emptyPaymentDetails(), logo: null }
+  const logo = { dataUrl: 'data:image/png;base64,AAAA', width: 400, height: 200 }
+
   it('records snapshots newest first, and re-recording replaces the old one', () => {
     const { recordInvoice, setStatus } = useHistoryStore.getState()
     const first = createSampleInvoice({ id: 'a' })
-    recordInvoice(first)
-    recordInvoice(createSampleInvoice({ id: 'b' }))
+    recordInvoice(first, assets)
+    recordInvoice(createSampleInvoice({ id: 'b' }), assets)
     const firstEntry = useHistoryStore.getState().entries[1]
     setStatus(firstEntry.id, 'paid', '2026-09-30')
 
-    recordInvoice({ ...first, notes: 'corrected' })
+    recordInvoice({ ...first, notes: 'corrected' }, assets)
 
     const entries = useHistoryStore.getState().entries
     expect(entries.map((e) => e.invoice.id)).toEqual(['a', 'b'])
@@ -226,14 +249,39 @@ describe('history store', () => {
 
   it('stores a copy that later edits cannot change', () => {
     const invoice = createSampleInvoice()
-    useHistoryStore.getState().recordInvoice(invoice)
+    const payment = { ...emptyPaymentDetails(), instructions: 'Bank A' }
+    useHistoryStore.getState().recordInvoice(invoice, { payment, logo: null })
     invoice.from.name = 'Changed later'
-    expect(useHistoryStore.getState().entries[0].invoice.from.name).toBe('Acme Studio')
+    payment.instructions = 'Bank B'
+    expect(useHistoryStore.getState().entries[0]).toMatchObject({
+      invoice: { from: { name: 'Acme Studio' } },
+      issuedWith: { payment: { instructions: 'Bank A' }, logoId: null },
+    })
+  })
+
+  it('keeps one copy of each logo, and drops logos nothing uses', () => {
+    const { recordInvoice, removeEntry } = useHistoryStore.getState()
+    recordInvoice(createSampleInvoice({ id: 'a' }), { ...assets, logo })
+    recordInvoice(createSampleInvoice({ id: 'b' }), { ...assets, logo: { ...logo } })
+    const [b, a] = useHistoryStore.getState().entries
+    expect(a.issuedWith?.logoId).toBeTruthy()
+    expect(b.issuedWith?.logoId).toBe(a.issuedWith?.logoId)
+    expect(Object.values(useHistoryStore.getState().logos)).toEqual([logo])
+
+    // A new logo for "a": the old one is still used by "b".
+    const newLogo = { ...logo, dataUrl: 'data:image/png;base64,BBBB' }
+    recordInvoice(createSampleInvoice({ id: 'a' }), { ...assets, logo: newLogo })
+    expect(Object.values(useHistoryStore.getState().logos)).toEqual([logo, newLogo])
+
+    removeEntry(b.id)
+    expect(Object.values(useHistoryStore.getState().logos)).toEqual([newLogo])
+    recordInvoice(createSampleInvoice({ id: 'a' }), assets)
+    expect(useHistoryStore.getState().logos).toEqual({})
   })
 
   it('clears the paid date when marked unpaid, and removes entries', () => {
     const { recordInvoice, setStatus, removeEntry } = useHistoryStore.getState()
-    recordInvoice(createSampleInvoice())
+    recordInvoice(createSampleInvoice(), assets)
     const { id } = useHistoryStore.getState().entries[0]
 
     setStatus(id, 'paid', '2026-09-30')

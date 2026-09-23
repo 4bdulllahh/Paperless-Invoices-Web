@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { emptyPaymentDetails } from '../domain/records'
 import { createSampleInvoice } from '../domain/sample'
 import { idbBackend, localBackend } from './backends'
 import {
@@ -31,8 +32,11 @@ function fillWithData() {
     address: '400 Market Street',
     taxId: '',
   })
-  useHistoryStore.getState().recordInvoice(createSampleInvoice())
-  useLogoStore.getState().setLogo({ dataUrl: 'data:image/png;base64,AAAA', width: 2, height: 1 })
+  const logo = { dataUrl: 'data:image/png;base64,AAAA', width: 2, height: 1 }
+  useHistoryStore
+    .getState()
+    .recordInvoice(createSampleInvoice(), { payment: emptyPaymentDetails(), logo })
+  useLogoStore.getState().setLogo(logo)
 }
 
 const snapshot = () =>
@@ -44,6 +48,7 @@ const snapshot = () =>
   )
 
 const text = (backup: BackupFile) => JSON.stringify(backup)
+const assets = { payment: emptyPaymentDetails(), logo: null }
 
 beforeEach(() => clearAllData())
 
@@ -88,7 +93,7 @@ describe('backups', () => {
   })
 
   it('waits for stores that are still loading', async () => {
-    useHistoryStore.getState().recordInvoice(createSampleInvoice({ id: 'saved' }))
+    useHistoryStore.getState().recordInvoice(createSampleInvoice({ id: 'saved' }), assets)
     await new Promise((resolve) => setTimeout(resolve, 20)) // let IndexedDB finish writing
     void useHistoryStore.persist.rehydrate()
     expect(useHistoryStore.persist.hasHydrated()).toBe(false)
@@ -128,7 +133,7 @@ describe('backups', () => {
     const backup = await createBackup()
     delete backup.stores.history
     await clearAllData()
-    useHistoryStore.getState().recordInvoice(createSampleInvoice({ id: 'keep-me' }))
+    useHistoryStore.getState().recordInvoice(createSampleInvoice({ id: 'keep-me' }), assets)
 
     const parsed = parseBackup(text(backup))
     if (parsed.ok) await applyBackup(parsed.backup)
@@ -151,6 +156,25 @@ describe('backups', () => {
     expect(parseBackup(text(backup))).toEqual({
       ok: false,
       error: expect.stringContaining('newer version'),
+    })
+  })
+
+  it('upgrades history from older backups: those invoices print with the current details', async () => {
+    const backup = await createBackup()
+    const v1Entry = {
+      id: 'entry-1',
+      invoice: createSampleInvoice(),
+      savedAt: '2026-09-23T10:00:00.000Z',
+      status: 'unpaid',
+      paidAt: null,
+    }
+    backup.stores.history = { version: 1, state: { entries: [v1Entry] } }
+
+    const parsed = parseBackup(text(backup))
+
+    expect(parsed.ok && parsed.backup.states.history).toEqual({
+      entries: [{ ...v1Entry, issuedWith: null }],
+      logos: {},
     })
   })
 

@@ -79,6 +79,19 @@ export async function flushWrites(): Promise<void> {
   while (pendingWrites.size > 0) await Promise.all(pendingWrites)
 }
 
+/** Resolves once a store has loaded its saved data (IndexedDB stores take a moment). */
+export function whenHydrated<T extends object, A extends object>(
+  store: PersistedStore<T, A>,
+): Promise<void> {
+  if (store.persist.hasHydrated()) return Promise.resolve()
+  return new Promise((resolve) => {
+    const unsubscribe = store.persist.onFinishHydration(() => {
+      unsubscribe()
+      resolve()
+    })
+  })
+}
+
 function isStorageValue(value: unknown): value is StorageValue<unknown> {
   return typeof value === 'object' && value !== null && 'state' in value && 'version' in value
 }

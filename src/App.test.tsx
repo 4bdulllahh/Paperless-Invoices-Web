@@ -34,14 +34,14 @@ describe('App shell', () => {
     expect(screen.getByRole('heading', { name: 'Preview' })).toBeInTheDocument()
   })
 
-  it('switches panels from the navigation', () => {
+  it('switches panels from the navigation', async () => {
     render(<App />)
     const [desktopNav] = screen.getAllByRole('navigation', { name: 'Main' })
     fireEvent.click(desktopNav.querySelector('button[aria-label="History"]')!)
 
     expect(screen.getByRole('heading', { name: 'History' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Invoice details' })).not.toBeInTheDocument()
-    expect(screen.getByText('Coming in Milestone 8')).toBeInTheDocument()
+    expect(await screen.findByText('No invoices yet')).toBeInTheDocument()
   })
 
   it('toggles and remembers the theme', () => {

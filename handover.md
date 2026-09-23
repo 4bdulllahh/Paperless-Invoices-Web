@@ -5,15 +5,15 @@
 - **Project:** Paperless, a 100% free, local-first invoicing web app. It's a portfolio piece with no backend, database or auth.
 - **Repo:** `C:\Users\Computer\Documents\GitHub\Paperless`, remote `https://github.com/4bdulllahh/Paperless-Web.git`, branch `main`.
 - **Live site:** https://paperless-bay-zeta.vercel.app/ (Vercel Hobby tier; every push to `main` deploys automatically).
-- **Last commit:** `5cbe079 feat: payment QR codes on invoices (Milestone 7)`.
+- **Last milestone:** Milestone 8 (PDF export and history), committed on `main`.
   - CI passed.
   - Live deploy verified: the QR codes scanned correctly off the live preview, with no console errors.
-- **Working tree:** clean apart from this untracked `handover.md`. Don't commit it unless the user asks.
+- **Working tree:** clean. `handover.md` is tracked; keep it Prettier-formatted or CI's `format:check` fails (it did once).
 - **Checks passing:**
   - lint, format:check, typecheck and build
-  - 363 tests
+  - 419 tests
   - 100% coverage on `src/domain/**` and `src/storage/**`, which CI enforces
-- **Main bundle:** about 134.7 KB gzipped. The PDF engine and QR encoder are lazy chunks, loaded by the worker or a dynamic import.
+- **Main bundle:** about 138.5 KB gzipped (M8 added ~3.8 KB). The PDF engine and QR encoder are lazy chunks, loaded by the worker or a dynamic import.
 
 ## How the user works
 
@@ -65,6 +65,10 @@
   - `schema.ts`: the invoice schema.
   - `records.ts`: profile, payment, logo, settings, client and history schemas, plus `emptyPaymentDetails`, `QR_METHODS`, `paymentLinkIssue`.
   - `viewModel.ts`: `buildInvoiceViewModel`, which formats everything the templates print.
+  - `export.ts` (M8): `exportIssues(invoice, history)` → `{section, message}[]`, `claimsNextNumber`, `invoiceFileName`, `draftState` (draft/downloaded/edited), `findNumberClash`.
+  - `history.ts` (M8): `entryStatus`, `filterHistory`, `countByFilter`, `issuedAssets`.
+  - `equal.ts`: `sameData` deep equality.
+  - `draft.ts` also has `duplicateInvoice`.
   - `paymentQr.ts` (M7): `paymentQr`, `invoicePaymentQr`, `upiIdIssue`, `ibanIssue`, `bicIssue`, `formatIban`, `compactIban`, `isValidIban`.
   - `numbering.ts`: `formatInvoiceNumber`, pattern `INV-{YYYY}-{####}`.
   - `draft.ts`, `lineItems.ts`, `clients.ts`, `dates.ts`, `format.ts`, `options.ts`, `decimalInput.ts`, `sample.ts`.
@@ -76,14 +80,14 @@
   - `onboarding.ts`: `finishOnboarding`, `loadSampleData`.
   - `stores.ts`:
 
-    | Store | Backend | Version | Notes |
-    |---|---|---|---|
-    | `useProfileStore` | localStorage | v3 | `business`, `payment {instructions, link, qr, upiId, iban, bic}`, `onboardingComplete` |
-    | `useLogoStore` | IDB | | |
-    | `useSettingsStore` | localStorage | | Has `claimSequence()` |
-    | `useDraftStore` | localStorage | | `startNewInvoice`, `setInvoice`, `updateInvoice`, `clearDraft` |
-    | `useClientsStore` | IDB | | |
-    | `useHistoryStore` | IDB | | `recordInvoice(invoice)`, `setStatus(id, status, paidAt)`, `removeEntry` |
+    | Store              | Backend      | Version | Notes                                                                                                                                                                               |
+    | ------------------ | ------------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+    | `useProfileStore`  | localStorage | v3      | `business`, `payment {instructions, link, qr, upiId, iban, bic}`, `onboardingComplete`                                                                                              |
+    | `useLogoStore`     | IDB          |         |                                                                                                                                                                                     |
+    | `useSettingsStore` | localStorage |         | Has `claimSequence()`                                                                                                                                                               |
+    | `useDraftStore`    | localStorage |         | `startNewInvoice`, `duplicateIntoDraft`, `setInvoice`, `updateInvoice`, `clearDraft`                                                                                                |
+    | `useClientsStore`  | IDB          |         |                                                                                                                                                                                     |
+    | `useHistoryStore`  | IDB          | v2      | `{entries, logos}`; `recordInvoice(invoice, {payment, logo})`, `setStatus`, `removeEntry`; entries carry `issuedWith {payment, logoId} \| null` (null = pre-v2, print with current) |
 
 - **`src/services/`:**
   - `pdf.ts` (lazy-loaded):
@@ -105,51 +109,20 @@
   - `business/`: `PaymentDetailsForm` has the QR select, UPI, IBAN and BIC fields.
   - `settings/`, `clients/`, `onboarding/`.
 - **`src/app/`:**
-  - `AppShell.tsx`: nav rail and panels. History still renders `PlaceholderPanel`.
-  - `TopBar.tsx`: the Download PDF button is **disabled**, with the title "PDF export arrives in Milestone 8".
+  - `AppShell.tsx`: nav rail and panels (all built; `PlaceholderPanel` was deleted). `fixIssue(section)` uses `flushSync` to show the editor, then `revealSection`.
+  - `TopBar.tsx`: number, Draft/Downloaded/Edited badge and `DownloadButton`.
+- **`src/features/export/`** (M8): `downloadInvoice.ts` (`downloadDraft`, `redownloadEntry`), `useDownloadInvoice`, `DownloadButton` (issues popover, done note with "Start a new invoice", error with retry).
+- **`src/features/history/HistoryPanel.tsx`** (M8): search, All/Unpaid/Overdue/Paid filter, mark paid with date, download again, duplicate (asks before replacing unsaved work), delete with confirm.
+- **`src/features/editor/revealSection.ts`**: section ids (`editor-section-<section>`) and `revealSection`.
 
 ## Remaining milestones
 
-### M8: Export and history (next)
+### M8: Export and history (done)
 
-1. **Download button:** enable it in `TopBar.tsx`, or move it to a small hook or action module such as `src/features/export/useDownloadInvoice.ts`.
-2. **Validate before download.** Block the download and show a clear message, pointing to the section, when:
-   - the business name is empty (`businessIssues`)
-   - the bill-to name is empty
-   - there are no line items with a description and amount
-   - there's an invalid date, or the due date is before the issue date
-   - the invoice number is empty
+- Browser check script: `m8.mjs` in the old scratchpad `shots` folder (`node m8.mjs <outDir>`, reads `URL`). It covers the issues popover and focus, download filename and `%PDF`, the sequence 42→43, re-download without a claim, History mark paid / re-download / duplicate, the number-clash block, dark theme, and a phone viewport with no page or sideways scroll.
+- Decisions: logos and payment details are snapshotted per entry, with logos deduplicated in the history store. A number used by another History entry blocks download. The claim checks the number against both the issue date and today, so moving the issue date to another year still claims.
 
-   Put the pure checks in `src/domain` (for example `exportIssues(invoice)`) and give them full coverage.
-3. **Invoice number and sequence:**
-   - The draft number was formatted from `settings.nextSequence` at `startNewInvoice`.
-   - On the first download of a draft, call `claimSequence()` only if the draft's number still equals `formatInvoiceNumber(pattern, nextSequence, issueDate)`, i.e. it wasn't edited by hand.
-   - Re-downloading the same invoice (same `invoice.id`, already in history) must not claim again.
-4. **Build and save the PDF:** `const { renderInvoicePdf } = await import('../../services/pdf')`, then pass it `buildTemplateProps(invoice, logo, payment)` so the file matches the preview exactly, then `downloadBlob`.
-5. **Filename:** for example `Invoice INV-2026-0042 - Northwind Ltd.pdf`, sanitised for Windows and macOS (strip `\/:*?"<>|`, trim, cap the length). Pure function in the domain, fully covered.
-6. **History snapshot:**
-   - Call `useHistoryStore.getState().recordInvoice(invoice)` after a successful render.
-   - The snapshot must freeze `from` as issued. It currently does: `from` is part of the invoice.
-   - Decide whether to snapshot the logo and payment details too (the logo is not snapshotted yet). Recommendation: add optional `payment` to the history entry so old invoices re-render faithfully. The logo can stay current, or be snapshotted as a data URL to IDB; weigh the size.
-   - Any schema change means bumping the history store version with a migration, and updating the backup tests.
-7. **Top bar status:** after a download, show "Downloaded"/"Issued" state instead of "Draft", or leave the draft and offer "New invoice". Keep the single-screen rule.
-8. **History panel** (replaces `PlaceholderPanel`):
-   - Newest first, with number, client, issue and due date, total, and a paid/unpaid badge.
-   - Overdue indicator (`isOverdue` in `domain/dates.ts`).
-   - Actions: mark paid (with date) or unpaid, re-download (render from the snapshot), duplicate into a new draft (new id and next number), delete (with confirmation).
-   - Optional search or filter.
-   - The list scrolls inside the panel; the page doesn't.
-9. **Tests:**
-   - domain: validation and filename
-   - component: TopBar download flow with `services/pdf` mocked, and the History panel
-   - storage: history migration if one is added
-   - Keep coverage at 100%.
-10. **Browser check:**
-    - Script `m8.mjs`: load sample data, download via `page.waitForEvent('download')`, then check the filename, that the PDF starts with `%PDF`, that the history entry exists and that the sequence increments.
-    - Also test on a phone viewport.
-11. **Wrap-up:** README (status, roadmap `[x] M8`), commit, push, CI, live check, summary.
-
-### M9: Polish, accessibility and PWA
+### M9: Polish, accessibility and PWA (next)
 
 - **Accessibility:**
   - keyboard pass: focus order, visible focus, dialogs trap focus and return it
@@ -183,4 +156,5 @@
   - The PayPal.me amount-in-URL was deliberately left out.
 - **SEPA country check:** SEPA QR doesn't restrict IBAN countries; it only needs a valid checksum and an EUR invoice.
 - **Profile data:** the QR detail fields are stored as plain strings, so bad data means no QR code rather than quarantined profile data. The form commits only valid values: `CommitTextField` / `DecimalField`.
-- **History snapshots:** the logo isn't snapshotted in history yet. This is an M8 decision.
+- **History preview:** the preview pane always shows the current draft, even on the History panel. Previewing a selected history entry would be a nice M9 extra.
+- **History totals** show the invoice total, not the balance due.

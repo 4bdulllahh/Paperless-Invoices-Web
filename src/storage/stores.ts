@@ -1,4 +1,4 @@
-import { createInvoiceDraft, emptyParty, sameParty } from '../domain/draft'
+import { createInvoiceDraft, duplicateInvoice, emptyParty, sameParty } from '../domain/draft'
 import { todayIso } from '../domain/dates'
 import { DEFAULT_NUMBER_PATTERN } from '../domain/numbering'
 import {
@@ -150,6 +150,19 @@ export const useDraftStore = createPersistedStore(
       set({ invoice })
       return invoice
     },
+    /** Open a copy of an earlier invoice as the new draft, with the next number and today's date. */
+    duplicateIntoDraft: (source: Invoice, today = todayIso()): Invoice => {
+      const invoice = duplicateInvoice({
+        source,
+        id: newId(),
+        newLineId: newId,
+        today,
+        settings: useSettingsStore.getState(),
+        business: useProfileStore.getState().business,
+      })
+      set({ invoice })
+      return invoice
+    },
     setInvoice: (invoice: Invoice) => set({ invoice }),
     updateInvoice: (update: (invoice: Invoice) => Invoice) =>
       set((state) => (state.invoice ? { invoice: update(state.invoice) } : {})),
@@ -195,29 +208,67 @@ export const useClientsStore = createPersistedStore(
 
 /* History: downloaded invoices, newest first. IndexedDB. */
 
-type HistoryData = { entries: HistoryEntry[] }
+type HistoryData = {
+  entries: HistoryEntry[]
+  /** Logos the entries were printed with, by id. Each is stored once, however many use it. */
+  logos: Record<string, Logo>
+}
+
+/** Drop logos no entry uses any more. */
+function usedLogos(logos: Record<string, Logo>, entries: HistoryEntry[]): Record<string, Logo> {
+  const used = new Set(entries.map((e) => e.issuedWith?.logoId))
+  return Object.fromEntries(Object.entries(logos).filter(([id]) => used.has(id)))
+}
 
 export const useHistoryStore = createPersistedStore(
   {
     name: 'paperless:history',
-    version: 1,
-    schema: z.object({ entries: z.array(historyEntrySchema) }),
+    version: 2,
+    schema: z.object({
+      entries: z.array(historyEntrySchema),
+      logos: z.record(z.string(), logoSchema),
+    }),
     backend: idbBackend,
+    migrations: {
+      // Version 2 keeps the payment details and logo each invoice was printed with. Older
+      // entries didn't record them, so they go on printing with the current ones.
+      2: (state) => {
+        const { entries } = state as { entries: object[] }
+        return { entries: entries.map((e) => ({ ...e, issuedWith: null })), logos: {} }
+      },
+    },
   },
-  { entries: [] } as HistoryData,
+  { entries: [], logos: {} } as HistoryData,
   (set) => ({
-    /** Save a snapshot of a downloaded invoice. Downloading the same invoice again replaces it. */
-    recordInvoice: (invoice: Invoice) =>
+    /**
+     * Save a snapshot of a downloaded invoice, with the payment details and logo it was printed
+     * with. Downloading the same invoice again replaces it and keeps its paid status.
+     */
+    recordInvoice: (
+      invoice: Invoice,
+      { payment, logo }: { payment: PaymentDetails; logo: Logo | null },
+    ) =>
       set((state) => {
         const previous = state.entries.find((e) => e.invoice.id === invoice.id)
+        let logos = state.logos
+        let logoId: string | null = null
+        if (logo) {
+          logoId = Object.keys(logos).find((id) => logos[id].dataUrl === logo.dataUrl) ?? null
+          if (!logoId) {
+            logoId = newId()
+            logos = { ...logos, [logoId]: { ...logo } }
+          }
+        }
         const entry: HistoryEntry = {
           id: previous?.id ?? newId(),
           invoice: structuredClone(invoice),
+          issuedWith: { payment: { ...payment }, logoId },
           savedAt: new Date().toISOString(),
           status: previous?.status ?? 'unpaid',
           paidAt: previous?.paidAt ?? null,
         }
-        return { entries: [entry, ...state.entries.filter((e) => e !== previous)] }
+        const entries = [entry, ...state.entries.filter((e) => e !== previous)]
+        return { entries, logos: usedLogos(logos, entries) }
       }),
     setStatus: (id: string, status: HistoryStatus, paidAt: string | null = null) =>
       set((state) => ({
@@ -226,7 +277,10 @@ export const useHistoryStore = createPersistedStore(
         ),
       })),
     removeEntry: (id: string) =>
-      set((state) => ({ entries: state.entries.filter((e) => e.id !== id) })),
+      set((state) => {
+        const entries = state.entries.filter((e) => e.id !== id)
+        return { entries, logos: usedLogos(state.logos, entries) }
+      }),
   }),
 )
 

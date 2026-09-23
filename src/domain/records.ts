@@ -98,10 +98,24 @@ export const clientSchema = partySchema.extend({
 
 export const HISTORY_STATUSES = ['unpaid', 'paid'] as const
 
+/**
+ * What an invoice was printed with besides its own data. Logos are large, so entries point to
+ * one shared copy (by id) instead of each holding their own.
+ */
+export const issuedWithSchema = z.object({
+  payment: paymentDetailsSchema,
+  logoId: z.string().min(1).nullable(),
+})
+
 /** A downloaded invoice, frozen as it was issued so later profile edits don't change it. */
 export const historyEntrySchema = z.object({
   id: z.string().min(1),
   invoice: invoiceSchema,
+  /**
+   * Null for invoices saved before payment details and logos were kept with them: those
+   * print with the current ones.
+   */
+  issuedWith: issuedWithSchema.nullable(),
   savedAt: z.iso.datetime(),
   status: z.enum(HISTORY_STATUSES),
   paidAt: z.iso.date().nullable(),
@@ -113,5 +127,6 @@ export type BusinessProfile = z.infer<typeof businessProfileSchema>
 export type Logo = z.infer<typeof logoSchema>
 export type Settings = z.infer<typeof settingsSchema>
 export type Client = z.infer<typeof clientSchema>
+export type IssuedWith = z.infer<typeof issuedWithSchema>
 export type HistoryEntry = z.infer<typeof historyEntrySchema>
 export type HistoryStatus = (typeof HISTORY_STATUSES)[number]

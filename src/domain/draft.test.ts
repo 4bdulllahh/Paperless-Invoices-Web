@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { createInvoiceDraft, createLineItem, emptyParty, isPristineDraft, sameParty } from './draft'
+import {
+  createInvoiceDraft,
+  createLineItem,
+  duplicateInvoice,
+  emptyParty,
+  isPristineDraft,
+  sameParty,
+} from './draft'
 import type { Settings } from './records'
 import { settingsSchema } from './records'
+import { createSampleInvoice } from './sample'
 import { invoiceSchema, type Invoice } from './schema'
 
 const settings: Settings = {
@@ -99,5 +107,67 @@ describe('isPristineDraft', () => {
     ['an item price', (i: Invoice) => ({ ...i, items: [{ ...i.items[0], unitPrice: '10' }] })],
   ])('is false once it has %s', (_, edit) => {
     expect(isPristineDraft(edit(fresh()))).toBe(false)
+  })
+})
+
+describe('duplicateInvoice', () => {
+  const source = createSampleInvoice()
+  const business = { ...emptyParty(), name: 'Acme Studio', address: 'New address' }
+  let n = 0
+  const copy = duplicateInvoice({
+    source,
+    id: 'copy',
+    newLineId: () => `new-line-${++n}`,
+    today: '2026-11-02',
+    settings,
+    business,
+  })
+
+  it('keeps the client, items, notes and terms', () => {
+    expect(copy).toMatchObject({
+      to: source.to,
+      notes: source.notes,
+      discount: source.discount,
+      currency: source.currency,
+      taxMode: source.taxMode,
+      templateId: source.templateId,
+    })
+    expect(copy.items.map((item) => item.description)).toEqual(
+      source.items.map((item) => item.description),
+    )
+  })
+
+  it('takes a new id and number, today’s date, the current sender, and nothing paid', () => {
+    expect(copy).toMatchObject({
+      id: 'copy',
+      number: '26-007',
+      issueDate: '2026-11-02',
+      // The original was due 14 days after it was issued.
+      dueDate: '2026-11-16',
+      from: business,
+      amountPaid: '',
+    })
+    expect(copy.items.map((item) => item.id)).toEqual(['new-line-1', 'new-line-2', 'new-line-3'])
+    expect(invoiceSchema.parse(copy)).toEqual(copy)
+  })
+
+  it('never shares data with the original', () => {
+    copy.to.name = 'Changed'
+    copy.items[0].discount.value = '50'
+    expect(source.to.name).toBe('Northwind Ltd')
+    expect(source.items[0].discount.value).toBe('')
+  })
+
+  it('never makes a due date before the issue date', () => {
+    const odd = { ...source, dueDate: '2026-09-01' }
+    const fixed = duplicateInvoice({
+      source: odd,
+      id: 'x',
+      newLineId: () => 'line',
+      today: '2026-11-02',
+      settings,
+      business,
+    })
+    expect(fixed.dueDate).toBe('2026-11-02')
   })
 })

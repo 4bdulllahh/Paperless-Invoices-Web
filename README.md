@@ -6,7 +6,7 @@ Create professional A4 invoices, preview them live across multiple templates, ad
 
 **Live:** https://paperless-bay-zeta.vercel.app
 
-> **Status:** early development (Milestone 7 — payment QR codes).
+> **Status:** early development (Milestone 8 — PDF export and invoice history).
 
 ## Principles
 
@@ -53,6 +53,14 @@ Each invoice can carry a QR code for the exact balance due, chosen in Business �
 
 IBANs are checked with the mod-97 checksum before they're saved. The code is left off when nothing is due, and the editor explains why an invoice has no code. Tests decode every generated code back to its exact text.
 
+## Downloading and history
+
+**Download PDF** checks the invoice first: a client, at least one priced item, valid dates and a number that no earlier invoice already uses. Each problem links straight to the editor section that fixes it. The file is named like `Invoice INV-2026-0042 - Northwind Ltd.pdf`, with characters that Windows or macOS refuse removed.
+
+- **Numbering.** A draft's number is only provisional, so abandoned drafts don't use up numbers. The first download claims it, and downloading the same invoice again never claims another.
+- **History.** Every download saves a frozen copy, including the payment details and logo it was printed with, so an old invoice downloads again exactly as it was sent. Logos are stored once however many invoices use them.
+- **Tracking.** Mark invoices paid (with the date) or unpaid, see which are overdue, search and filter, duplicate one into a new draft, or delete it.
+
 ## Getting started
 
 Requires Node.js 24 (see `.nvmrc`).
@@ -85,7 +93,7 @@ npm run dev        # start the dev server at http://localhost:5173
 - [x] **M5** Invoice editor
 - [x] **M6** PDF templates & live preview
 - [x] **M7** QR payments
-- [ ] **M8** Export & history
+- [x] **M8** Export & history
 - [ ] **M9** Polish, accessibility & PWA
 - [ ] **M10** Production release
 

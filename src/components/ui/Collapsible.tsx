@@ -10,6 +10,7 @@ type CollapsibleProps = {
   defaultOpen?: boolean
   children: ReactNode
   className?: string
+  id?: string
 }
 
 /**
@@ -23,9 +24,11 @@ export function Collapsible({
   defaultOpen,
   children,
   className,
+  id,
 }: CollapsibleProps) {
   return (
     <details
+      id={id}
       open={defaultOpen}
       className={cn('group rounded-lg border border-line bg-surface', className)}
     >

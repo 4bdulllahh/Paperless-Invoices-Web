@@ -1,4 +1,4 @@
-import { addDays } from './dates'
+import { addDays, daysBetween } from './dates'
 import { formatInvoiceNumber } from './numbering'
 import type { Settings } from './records'
 import type { Invoice, LineItem, Party } from './schema'
@@ -62,5 +62,36 @@ export function createInvoiceDraft({ id, lineId, today, settings, business }: Dr
     amountPaid: '',
     notes: '',
     templateId: settings.templateId,
+  }
+}
+
+type DuplicateInput = Omit<DraftInput, 'lineId'> & {
+  source: Invoice
+  /** A new id for each line item. */
+  newLineId: () => string
+}
+
+/**
+ * A new draft copied from an earlier invoice: same client, items, notes and terms, but the next
+ * number, today's date, the current business details and nothing paid yet.
+ */
+export function duplicateInvoice({
+  source,
+  id,
+  newLineId,
+  today,
+  settings,
+  business,
+}: DuplicateInput): Invoice {
+  const copy = structuredClone(source)
+  return {
+    ...copy,
+    id,
+    number: formatInvoiceNumber(settings.numberPattern, settings.nextSequence, today),
+    issueDate: today,
+    dueDate: addDays(today, Math.max(0, daysBetween(source.issueDate, source.dueDate))),
+    from: { ...business },
+    items: copy.items.map((item) => ({ ...item, id: newLineId() })),
+    amountPaid: '',
   }
 }

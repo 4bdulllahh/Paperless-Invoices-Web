@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { todayIso } from '../domain/dates'
 import { idbBackend, localBackend, STORAGE_PREFIX, type StorageBackend } from './backends'
-import { flushWrites, runMigrations, type PersistedStore } from './persisted'
+import { flushWrites, runMigrations, whenHydrated, type PersistedStore } from './persisted'
 import { PERSISTED_STORES, type StoreKey } from './stores'
 
 /**
@@ -29,16 +29,6 @@ export type ParsedBackup = {
 type AnyStore = PersistedStore<object, object>
 const storeEntries = () => Object.entries(PERSISTED_STORES) as [StoreKey, AnyStore][]
 
-function waitForHydration(store: AnyStore): Promise<void> {
-  if (store.persist.hasHydrated()) return Promise.resolve()
-  return new Promise((resolve) => {
-    const unsubscribe = store.persist.onFinishHydration(() => {
-      unsubscribe()
-      resolve()
-    })
-  })
-}
-
 function dataOf(store: AnyStore): object {
   const state = store.getState() as Record<string, unknown>
   return Object.fromEntries(Object.keys(store.initialData).map((key) => [key, state[key]]))
@@ -62,7 +52,7 @@ async function collectQuarantine(): Promise<Record<string, string>> {
 
 export async function createBackup(now = new Date()): Promise<BackupFile> {
   const entries = storeEntries()
-  await Promise.all(entries.map(([, store]) => waitForHydration(store)))
+  await Promise.all(entries.map(([, store]) => whenHydrated(store)))
   const quarantine = await collectQuarantine()
   return {
     app: 'paperless',

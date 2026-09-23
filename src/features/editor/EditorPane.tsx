@@ -15,16 +15,18 @@ import { Card } from '../../components/ui/Card'
 import { Collapsible } from '../../components/ui/Collapsible'
 import { TextAreaField } from '../../components/ui/Field'
 import { isPristineDraft } from '../../domain/draft'
+import { draftState } from '../../domain/export'
 import { formatDate } from '../../domain/format'
 import { buildInvoiceViewModel } from '../../domain/viewModel'
 import { cn } from '../../lib/cn'
-import { useDraftStore } from '../../storage/stores'
+import { useDraftStore, useHistoryStore } from '../../storage/stores'
 import { BillToSection } from './sections/BillToSection'
 import { FromSection } from './sections/FromSection'
 import { InvoiceSection } from './sections/InvoiceSection'
 import { LineItemsSection } from './sections/LineItemsSection'
 import { PaymentSection } from './sections/PaymentSection'
 import { TaxDiscountSection } from './sections/TaxDiscountSection'
+import { sectionElementId } from './revealSection'
 import { TotalsFooter } from './TotalsFooter'
 
 type EditorPaneProps = {
@@ -38,6 +40,7 @@ export function EditorPane({ className, onEditProfile }: EditorPaneProps) {
   const invoice = useDraftStore((state) => state.invoice)
   const update = useDraftStore((state) => state.updateInvoice)
   const startNewInvoice = useDraftStore((state) => state.startNewInvoice)
+  const history = useHistoryStore((state) => state.entries)
   const [confirmingNew, setConfirmingNew] = useState(false)
   // All the numbers come from the calculation engine, recomputed once per change.
   const view = useMemo(() => (invoice ? buildInvoiceViewModel(invoice) : null), [invoice])
@@ -56,8 +59,11 @@ export function EditorPane({ className, onEditProfile }: EditorPaneProps) {
     )
   }
 
+  const state = draftState(invoice, history)
+
   function newInvoice() {
-    if (invoice && isPristineDraft(invoice)) startNewInvoice()
+    // Nothing is lost if the draft is empty, or already saved in History exactly as it is.
+    if (invoice && (isPristineDraft(invoice) || state === 'downloaded')) startNewInvoice()
     else setConfirmingNew(true)
   }
 
@@ -93,7 +99,10 @@ export function EditorPane({ className, onEditProfile }: EditorPaneProps) {
           className="flex flex-col gap-3 border-b border-line bg-accent-soft px-5 py-4 text-sm"
         >
           <p id="new-invoice-title">
-            <strong>Start a new invoice?</strong> This one will be cleared from the editor.
+            <strong>Start a new invoice?</strong>{' '}
+            {state === 'edited'
+              ? 'Changes since your last download will be lost. The downloaded copy stays in History.'
+              : 'This one will be cleared from the editor.'}
           </p>
           <div className="flex gap-2">
             <Button
@@ -116,6 +125,7 @@ export function EditorPane({ className, onEditProfile }: EditorPaneProps) {
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-3 sm:p-4">
         <Collapsible
           title="Bill to"
+          id={sectionElementId('billTo')}
           icon={<UserRound />}
           meta={invoice.to.name || 'Not set'}
           defaultOpen
@@ -125,6 +135,7 @@ export function EditorPane({ className, onEditProfile }: EditorPaneProps) {
 
         <Collapsible
           title="Items"
+          id={sectionElementId('items')}
           icon={<ListOrdered />}
           meta={`${itemCount} ${itemCount === 1 ? 'item' : 'items'}`}
           defaultOpen
@@ -142,13 +153,19 @@ export function EditorPane({ className, onEditProfile }: EditorPaneProps) {
 
         <Collapsible
           title="Number, dates & currency"
+          id={sectionElementId('invoice')}
           icon={<CalendarDays />}
           meta={`Due ${formatDate(invoice.dueDate, invoice.locale)}`}
         >
           <InvoiceSection invoice={invoice} update={update} />
         </Collapsible>
 
-        <Collapsible title="From" icon={<Building2 />} meta={invoice.from.name || 'Not set'}>
+        <Collapsible
+          title="From"
+          id={sectionElementId('from')}
+          icon={<Building2 />}
+          meta={invoice.from.name || 'Not set'}
+        >
           <FromSection invoice={invoice} update={update} onEditProfile={onEditProfile} />
         </Collapsible>
 
