@@ -86,27 +86,27 @@ Paperless is a free invoice generator that runs entirely in the browser. It's a 
 - **Nav rail** (desktop) or bottom tab bar (phone): Invoice, History, Clients, Business, Settings (`navigation.ts`).
 - **Main area:** on desktop, the current panel sits on the left and the live preview is always on the right. On a phone, Invoice has an Edit/Preview toggle and the other panels hide the preview.
 
-**Invoice sections, as of v1.2:**
+**Invoice sections, as of v1.3:**
 
 - **Items:** each line has Qty, Unit (with suggestions: Pcs, Sets, Hrs…), Unit price and Tax %. India adds an HSN/SAC field. With "tax on each line", each line also shows its tax and total.
-- **Tax & discounts:** tax name, "Show VAT on each line", a price box ("Include VAT in AED 100.00" and "Grand total you want" plus Fit rates, both undoable), the invoice discount and "Advance payments" (the `amountPaid` field).
+- **Tax & discounts:** tax name; "Prices agreed with this client", a per-invoice toggle between "VAT added on top" and "VAT included" (`taxPricing`, named after the tax); "Show VAT on each line"; with VAT included only, a price box ("Include VAT in AED 100.00" and "Grand total you want" plus Fit rates) with small undo and redo arrows that step through every change; the invoice discount and "Advance payments" (the `amountPaid` field).
 - **Title, number & dates:** title, number, issue date, date of supply, a Due date / Payment terms toggle (terms: on delivery, 15–90 days; the due date is still stored so History knows when it's overdue), LPO/PO number and currency.
 - **From:** the sender, the TRN (or local label) with a format check, and "Sign this invoice" with the signature and stamp.
 - **Payment:** the same form as Business, but changes are saved on the invoice itself (`invoice.payment`), with a notice. "Use my defaults" clears them; new and duplicated invoices start from the defaults.
 
 **Panels:**
 
-| Panel    | File                                      | What it does                                                                                                                                                                                                                                                                                 |
-| -------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Invoice  | `src/features/editor/EditorPane.tsx`      | Collapsible sections in this order: Bill to (with saved-client combobox), Items, Tax & discounts, Title, number & dates, From, Payment, Notes. A totals footer shows the balance due, with an expandable breakdown. Every keystroke autosaves.                                               |
-| History  | `src/features/history/HistoryPanel.tsx`   | Every downloaded invoice. Search, filter (All/Unpaid/Overdue/Paid), mark paid with a date, download again exactly as issued, duplicate as a new draft, delete.                                                                                                                               |
-| Clients  | `src/features/clients/ClientsPanel.tsx`   | Saved "Bill to" details, added with "Save to clients" in the editor. Search, put one on the current invoice, delete.                                                                                                                                                                         |
-| Business | `src/features/business/BusinessPanel.tsx` | Business details, logo, default payment details (accepted methods, bank name, account name and number, IBAN, SWIFT, other instructions, payment link, QR code of type link, UPI or SEPA), and the signature and stamp with "Sign new invoices".                                              |
-| Settings | `src/features/settings/SettingsPanel.tsx` | Country, currency, locale, tax (name, rate, number label, tax on each line), terms and whether invoices print a due date or the terms, numbering, title, template and words (`InvoiceDefaultsForm.tsx`). Also data (`DataSection.tsx`), "Run setup again", and the version plus GitHub link. |
+| Panel    | File                                      | What it does                                                                                                                                                                                                                                                                                             |
+| -------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Invoice  | `src/features/editor/EditorPane.tsx`      | Collapsible sections in this order: Bill to (with saved-client combobox), Items, Tax & discounts, Title, number & dates, From, Payment, Notes. A totals footer shows the balance due, with an expandable breakdown. Every keystroke autosaves.                                                           |
+| History  | `src/features/history/HistoryPanel.tsx`   | Every downloaded invoice. Search, filter (All/Unpaid/Overdue/Paid), mark paid with a date, download again exactly as issued, duplicate as a new draft, delete.                                                                                                                                           |
+| Clients  | `src/features/clients/ClientsPanel.tsx`   | Saved "Bill to" details, added with "Save to clients" in the editor. Search, put one on the current invoice, delete.                                                                                                                                                                                     |
+| Business | `src/features/business/BusinessPanel.tsx` | Business details, logo, default payment details (accepted methods, bank name, account name and number, IBAN, SWIFT, other instructions, payment link, QR code of type link, UPI or SEPA), and the signature and stamp with "Sign new invoices".                                                          |
+| Settings | `src/features/settings/SettingsPanel.tsx` | Country, currency, locale, tax (name, rate, number label, tax on each line), terms and whether invoices print a due date or the terms, numbering, title, template, PDF colour and words (`InvoiceDefaultsForm.tsx`). Also data (`DataSection.tsx`), "Run setup again", and the version plus GitHub link. |
 
 **Preview pane** (`src/features/preview/PreviewPane.tsx`):
 
-- a template dropdown with six templates
+- a template dropdown with six templates, and a **Colour** button that opens the PDF colour picker (`components/ui/ColorPicker.tsx`): 12 ready-made colours, a saturation square, a hue slider, a hex field and a "Balance due" sample showing the text colour the PDF will use. The colour belongs to the invoice (`accentColor`).
 - the page image(s)
 - a floating zoom bar: out, a % label that resets to fit width, in, and fit page/fit width
 - Ctrl/⌘ + wheel and pinch also zoom (`usePreviewZoom.ts`)
@@ -166,7 +166,8 @@ src/
 | `countries.ts`                                                           | 63 country presets, `countrySettings(preset)` → Settings patch, `guessCountry` and `countryInSentence` ("the United Arab Emirates").                                                                                                                                                              |
 | `compliance.ts`                                                          | What each country's law asks an invoice to show (`RULES`), tax number formats (`taxIdIssue`, `taxIdRules`) and `complianceIssues`, the warnings shown before downloading. Sources are listed at the top.                                                                                          |
 | `pricing.ts`                                                             | `fitToTotal` and `includeTaxInPrices`: work unit prices back from a grand total. Scales, nudges, then searches small changes on the finest lines for an exact total.                                                                                                                              |
-| `words.ts`                                                               | `numberToWords` and `amountInWords` (unit names for 37 currencies; lakh/crore; "only").                                                                                                                                                                                                           |
+| `words.ts`                                                               | `numberToWords` and `amountInWords` (unit names for 37 currencies; lakh/crore; "Only"). Every word capitalised, ending in a full stop: "One Hundred Two US Dollars."                                                                                                                              |
+| `colors.ts`                                                              | The PDF colour: `ACCENT_PRESETS`, `pdfTheme(accent)` (text colours that stay readable on and around the accent), WCAG `contrast`, and the HSV maths for the picker.                                                                                                                               |
 | `export.ts`                                                              | `exportIssues`, `claimsNextNumber`, `invoiceFileName`, `draftState`, `findNumberClash`.                                                                                                                                                                                                           |
 | `history.ts`                                                             | `entryStatus` (overdue is computed), `filterHistory`, `countByFilter`, `issuedAssets`.                                                                                                                                                                                                            |
 | `paymentQr.ts`                                                           | UPI and SEPA (EPC069-12) QR payloads, IBAN/BIC/UPI validation.                                                                                                                                                                                                                                    |
@@ -229,7 +230,7 @@ The theme is stored separately at `paperless:theme` (`useTheme.ts`, mirrored in 
 
 **Changing what's saved:**
 
-- **Adding a field:** give it a Zod `.default(...)` in the schema. Old saved data and old backups then load without a migration. v1.1 added `title`, `taxIdLabel`, `amountInWords`, `country`, `documentTitle`, `payment.methods` and others this way. v1.2 added `poNumber`, `supplyDate`, `dueMode`, `paymentTermsDays`, `payment`, `signed`, `showLineTax` and `country` on the invoice, `unit` and `code` on lines, bank fields on payment details, and signature/stamp ids on History entries. Their defaults keep older invoices printing as they did (for example `showLineTax: false` keeps the old tax rounding).
+- **Adding a field:** give it a Zod `.default(...)` in the schema. Old saved data and old backups then load without a migration. v1.1 added `title`, `taxIdLabel`, `amountInWords`, `country`, `documentTitle`, `payment.methods` and others this way. v1.2 added `poNumber`, `supplyDate`, `dueMode`, `paymentTermsDays`, `payment`, `signed`, `showLineTax` and `country` on the invoice, `unit` and `code` on lines, bank fields on payment details, and signature/stamp ids on History entries. Their defaults keep older invoices printing as they did (for example `showLineTax: false` keeps the old tax rounding). v1.3 added `taxPricing` (`'added'`) and `accentColor` (`'#eb5e28'`, flame) on the invoice and `accentColor` on settings.
 - **v1.2 migrations:** settings and draft went to version 2 to change a saved title of "Tax invoice" to "Tax Invoice".
 - **Renaming, removing or restructuring:** bump the store's `version` and add `migrations[newVersion]`, then add a test in `src/storage/stores.test.ts`.
 - **Backups:** backup files (`backup.ts`) include each store's version and are migrated on import. A change that loads old data correctly also loads old backups.
@@ -272,7 +273,8 @@ The theme is stored separately at `paperless:theme` (`useTheme.ts`, mirrored in 
 **Tax and totals:**
 
 - The rules are in `domain/calc.ts`; the tests in `calc.test.ts` are the spec. `showLineTax` switches tax rounding from per rate to per line.
-- "Tax included" and "Grand total you want" are in `domain/pricing.ts`. The editor always enters prices before tax now; `taxMode: 'inclusive'` only survives on older invoices, and the Tax section offers to convert them.
+- "Tax included" and "Grand total you want" are in `domain/pricing.ts`. The editor always enters prices before tax; `taxMode: 'inclusive'` only survives on older invoices, and the Tax section offers to convert them (converting also sets `taxPricing: 'included'`).
+- `taxPricing` (added on top or included) is a per-invoice choice, deliberately not in Settings: it's agreed per client. It never changes the maths or the PDF; it only shows the price tools. The undo/redo history lives in `TaxDiscountSection` state and is dropped once the rates are edited by hand, so undoing never throws away typed changes.
 - The README section "How totals are calculated" describes the rounding rules. Keep it in sync.
 
 **Payment:**
@@ -293,7 +295,7 @@ The theme is stored separately at `paperless:theme` (`useTheme.ts`, mirrored in 
 
 - Design tokens (`--canvas`, `--surface`, `--fg`, `--accent`…) are in `src/index.css`, for light and dark (`[data-theme="dark"]`).
 - Use the token classes (`bg-surface`, `text-fg-subtle`, `rounded-lg`…), not raw hex values, in components.
-- The PDF has its own print colours, in `templates/layout.ts`.
+- The PDF has its own print colours, in `templates/layout.ts`. The accent is not one of them: templates read `view.theme` (from `pdfTheme` in `domain/colors.ts`) and apply it as style overrides, e.g. `style={[s.balance, { backgroundColor: theme.accent }]}`. Text on an accent fill must use `theme.onAccent`; accent-coloured text uses `theme.accentOnPaper` on white or `theme.accentOnInk` on ink. Flame gives exactly the colours the templates printed before v1.3.
 
 **Add a panel:** add an id to `PanelId` and `NAV_ITEMS` (`app/navigation.ts`), a lazy import in `app/lazyPanels.ts`, and a branch in `AppShell.tsx`.
 
@@ -316,6 +318,8 @@ The theme is stored separately at `paperless:theme` (`useTheme.ts`, mirrored in 
 
 **PDF output:**
 
+- **Never print text on the accent in a fixed colour.** Users pick any colour, so use the theme's text colours (see above).
+- **The signature and stamp sit side by side** (`SignatureBlock` in `shared.tsx`): stamp left, signature right over the line, 186 points wide in total, the inside of Compact's totals box.
 - **PDF fonts are Latin only:** Inter, Space Grotesk and Libre Baskerville, in `public/fonts`. Inter fills missing currency symbols. Arabic, Urdu, Chinese and similar scripts print as empty boxes. That's why country locales are English variants.
 
 **Security policy:**
@@ -386,14 +390,15 @@ Afterwards, stop it with `Get-NetTCPConnection -LocalPort 4173 | ForEach-Object 
 - **How to run:** run them from that folder. Each reads `URL` (default `http://localhost:4173`); set `URL=https://paperless-bay-zeta.vercel.app/` to check the live site.
 - **Scripts:**
 
-  | Script                           | What it checks                                                                                                                                                                                                                                                                                                                   |
-  | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-  | `m12.mjs <outDir>`               | The v1.2 regression and the best starting point: a first run in Dubai (country guessed), TRN checks, VAT on each line, tax included and grand total, LPO and terms, payment changed on one invoice, a drawn signature, the legal warnings and Download anyway, phone layout, axe in both themes. Prints `errors: []` when clean. |
-  | `m11.mjs <outDir>`               | The v1.1 regression: first run with a country, currency following Settings, zoom, all six templates, download, phone layout, and axe accessibility scans. Pins a time zone with no preset, so the country starts empty.                                                                                                          |
-  | `m10csp.mjs <outDir> <logo.png>` | Runs the app under the real CSP (no bypass) and collects every violation from the page and workers: preview, logo, download, backup export, service worker. Any PNG works as the logo, e.g. `public/apple-touch-icon.png`.                                                                                                       |
-  | `m8.mjs <outDir>`                | Download flow and History.                                                                                                                                                                                                                                                                                                       |
-  | `m9.mjs <outDir> [distDir]`      | Offline, update prompt, axe on every panel in both themes, tab order.                                                                                                                                                                                                                                                            |
-  | `m10shots.mjs <outDir>`          | Captures the README screenshots. Convert them to `docs/screenshots/*.webp` with PIL at about 1600 px wide.                                                                                                                                                                                                                       |
+  | Script                           | What it checks                                                                                                                                                                                                                                                                                                                           |
+  | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `m13.mjs <outDir>`               | The v1.3 regression and the best starting point: everything m12 does, plus the VAT added/included toggle, pressing Include VAT twice then undo, undo, redo, the colour picker (presets, dragging the square, typing a hex, Escape), the Settings colour reaching a new draft, and the picker on a phone. Prints `errors: []` when clean. |
+  | `m12.mjs <outDir>`               | The v1.2 regression: a first run in Dubai (country guessed), TRN checks, VAT on each line, tax included and grand total, LPO and terms, payment changed on one invoice, a drawn signature, the legal warnings and Download anyway, phone layout, axe in both themes. Prints `errors: []` when clean.                                     |
+  | `m11.mjs <outDir>`               | The v1.1 regression: first run with a country, currency following Settings, zoom, all six templates, download, phone layout, and axe accessibility scans. Pins a time zone with no preset, so the country starts empty.                                                                                                                  |
+  | `m10csp.mjs <outDir> <logo.png>` | Runs the app under the real CSP (no bypass) and collects every violation from the page and workers: preview, logo, download, backup export, service worker. Any PNG works as the logo, e.g. `public/apple-touch-icon.png`.                                                                                                               |
+  | `m8.mjs <outDir>`                | Download flow and History.                                                                                                                                                                                                                                                                                                               |
+  | `m9.mjs <outDir> [distDir]`      | Offline, update prompt, axe on every panel in both themes, tab order.                                                                                                                                                                                                                                                                    |
+  | `m10shots.mjs <outDir>`          | Captures the README screenshots. Convert them to `docs/screenshots/*.webp` with PIL at about 1600 px wide.                                                                                                                                                                                                                               |
 
 - **If that folder is gone** (Temp gets cleaned): make a new scratch folder, run `npm i playwright-core axe-core`, and write a fresh script modelled on the m12 description above.
   - Use `browser.newContext({ viewport, isMobile, hasTouch })` for phone sizes, since headless Edge windows can't go below 492 px.
@@ -401,9 +406,10 @@ Afterwards, stop it with `Get-NetTCPConnection -LocalPort 4173 | ForEach-Object 
 - **Gotchas:**
   - Editor sections collapse when you switch panels, so scripts must reopen them.
   - The one-time "works offline" note can cover things for a few seconds after the first load.
-  - The browser context's time zone decides which country the wizard pre-selects. Set `timezoneId` in `newContext` (m12 uses `Asia/Dubai`, m11 `Antarctica/Troll` for none).
+  - The browser context's time zone decides which country the wizard pre-selects. Set `timezoneId` in `newContext` (m12 and m13 use `Asia/Dubai`, m11 `Antarctica/Troll` for none).
+  - m12 predates the v1.3 toggle: its step 5 fails now, because the price tools only show with "VAT included". Use m13.
   - Downloading a UAE invoice shows the legal-warnings popover first; click **Download anyway** (m11 and m12 do).
-  - axe sometimes reports a `color-contrast` hit on the preview's "Updating…" status while it fades out. It's a transition caught midway: wait a few seconds and scan again. On the live site after v1.2 it cleared after 3 seconds.
+  - axe sometimes reports a `color-contrast` hit on the preview's "Updating…" status (selector `.gap-1`) while it fades out. It's a transition caught midway: wait a few seconds and scan again. On the live site after v1.2 it cleared after 3 seconds; in v1.3 runs it moved between scans (a different one each run), which confirms it.
 
 **Accessibility:**
 
@@ -437,7 +443,7 @@ Afterwards, stop it with `Get-NetTCPConnection -LocalPort 4173 | ForEach-Object 
    curl -s "https://api.github.com/repos/4bdulllahh/Paperless-Invoices-Web/actions/runs?head_sha=$(git rev-parse HEAD)" | grep -m2 -E '"(status|conclusion)"'
    ```
 5. Wait for Vercel. The deploy is live when `curl -s https://paperless-bay-zeta.vercel.app/` contains the new `index-<hash>.js` name from `dist/assets`.
-6. Run `m12.mjs` and `m10csp.mjs` against the live URL (and `m11.mjs` for templates and zoom).
+6. Run `m13.mjs` and `m10csp.mjs` against the live URL (and `m11.mjs` for templates and zoom).
 7. Tag releases: `git tag -a v1.x.0 -m "..." && git push origin v1.x.0`.
 8. Write the plain summary for the user.
 
@@ -447,7 +453,7 @@ Versioning: bug fixes bump the patch (1.1.1). A round of feature feedback bumps 
 
 - **Machine:** Windows 11. Node 24 is at `C:\Program Files\nodejs`.
 - **PATH:** fresh PowerShell shells don't have node or npm on PATH. Start npm commands with the `$env:Path = ...` line from [Starting a session](#starting-a-session). The Bash tool (Git Bash) can't find npm, so run npm and npx in PowerShell. git, curl and python work in Bash.
-- **PowerShell 5.1:** it has no `&&`. Use `;` or `if ($?) { … }`.
+- **PowerShell 5.1:** it has no `&&`. Use `;` or `if ($?) { … }`. `Set-Content -Encoding utf8` writes a BOM; don't use it on `package.json` (bump the version with the Edit tool or `sed`).
 - **Editing files:** use the Edit tool for multi-line code edits. Python heredoc replacements have mangled `\n` escapes in the past.
 - **Large patches:** long Bash heredocs sometimes fail to parse in this tool ("unexpected EOF"). Write the patch script to the session scratchpad with the Write tool and run it with `python`. Open files with `newline='\n'` when writing, or Python on Windows writes CRLF.
 - **Running one test file** needs the repo root as the working directory, e.g. `npx vitest run src/domain/pricing.test.ts`.
@@ -462,6 +468,8 @@ Versioning: bug fixes bump the patch (1.1.1). A round of feature feedback bumps 
 - **Legal checks** cover the fields each country's VAT law lists. They can't know whether a client is VAT-registered, so a missing client TRN is a warning, not a block. India's CGST/SGST/IGST split and place of supply aren't modelled.
 - **Exact grand totals:** with large quantities, a 0.01 change in a rate moves the total by a lot, so some totals can't be reached with 2-decimal rates. Paperless picks the closest and says so, and may move a rate or two a few fils off the even proportion to reach an exact total.
 - **Grouped items:** headings between groups of lines (like "Maintenance Staff" on the user's sample) aren't supported yet.
+- **Tax included per client:** the choice is saved on each invoice. Saved clients don't remember it, so a new invoice starts at "added on top"; duplicating an invoice keeps it.
+- **Words style:** amounts in words follow the US pattern without "and" after hundreds ("One Hundred Two"), as the user's UAE sample does. British "One Hundred And Two" would be a small change in `words.ts`.
 - **Logo picker on Android:** "Can't load some photos" comes from Google Photos' cloud picker. On phones there's also a "From Files" button, which opens the file browser instead.
 - **Scripts:** PDFs print Latin scripts only (see above).
 - **QR codes:** they follow the UPI and EPC specs and decode with jsQR in tests and off the live preview. They haven't been tested with a real banking app.
@@ -483,7 +491,7 @@ Versioning: bug fixes bump the patch (1.1.1). A round of feature feedback bumps 
 
 ## Current state
 
-- **Version:** v1.2.0 (commit `8f407e1`, tagged), followed by two docs commits (`b01c8b8`, `8ec31ef`) for the repository rename. Released and verified live on 2026-09-24. Nothing is in progress.
+- **Version:** v1.3.0, the third round of user feedback, released on 2026-09-25. Nothing is in progress.
 - **History of releases:**
   - Milestones 1–10 built the app; M10 was tagged v1.0.0.
   - v1.1.0 was the first round of user feedback:
@@ -506,16 +514,28 @@ Versioning: bug fixes bump the patch (1.1.1). A round of feature feedback bumps 
     - signature and stamp (upload or draw)
     - country guessed on first run
     - logo picker fixes for Android
+  - v1.3.0 was the third round:
+    - signature and stamp side by side (stamp left, signature right), no longer overlapping
+    - undo and redo arrows for Include VAT and Fit rates, stepping through every change
+    - "VAT added on top" / "VAT included" toggle per invoice in Tax & discounts; the price tools only show with VAT included
+    - amount in words with every word capitalised and a full stop at the end
+    - a PDF colour picker (preview toolbar per invoice, Settings for new invoices), with text on the colour turning dark or white to stay readable
 - **Readings chosen in v1.2** (where the request could be read more than one way):
   - "Tax included" became a one-off action that lowers the rates, not a mode, because a UAE tax invoice must show rates before VAT. The 4.76 AED the user saw was correct maths (100 including 5% is 95.24 + 4.76); the old mode just printed 100 as the rate.
   - "Popup" for changed payment details is a notice that sticks to the bottom of the Payment section, with Got it and Undo changes, rather than a modal.
   - "On delivery day" payment terms are 0 days.
   - The item code column (HSN/SAC) is only offered for India; "LPO" is used for Gulf countries, "PO" elsewhere.
   - Group headings within items (seen on the user's sample invoice) weren't asked for, so they're not built.
-- **Verified live after v1.2:** `m12.mjs` (no errors, axe clean apart from the fading-status artefact above), `m10csp.mjs` (no CSP problems), downloaded PDF checked visually.
+- **Readings chosen in v1.3:**
+  - The toggle is back, but "VAT included" still prints before-VAT rates (the law needs them). Choosing it reveals the tools that work the rates back; it doesn't change any number by itself.
+  - The toggle's labels use the invoice's tax name ("VAT included"), falling back to "Tax".
+  - "One Hundred And Two" in the request was read as being about capitals, so no "and" was added after hundreds (the user's UAE sample has none either).
+  - The theme colour recolours what was flame in Modern, Bold and Corporate, and adds small accents to Classic, Compact and Minimal (rules, table heading wash, Minimal's title), so every template responds. Flame looks exactly as before.
+  - Text on a colour switches between ink and white by WCAG contrast; accent text is darkened on white (3:1) or lightened on ink (4.5:1).
+- **Verified before release (local production build):** `m13.mjs` (all flows as expected; axe clean apart from the fading-status artefact), `m10csp.mjs` (no CSP problems), PDFs of all six templates in flame, navy, gold and teal with a real stamp and signature checked visually.
 - **Health:**
-  - all checks and CI pass; 575 tests; domain and storage coverage 100%
-  - start-up JS about 146 KB gzipped (the payment and signature forms now live in the editor)
+  - all checks and CI pass; 622 tests; domain and storage coverage 100%
+  - main bundle about 107 KB gzipped (`index-*.js`), plus CSS 8 KB
   - axe clean in both themes
   - zero CSP violations
 - **Waiting on:** the next round of feedback from the user.

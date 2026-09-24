@@ -1,4 +1,4 @@
-import { Target, Undo2, WandSparkles } from 'lucide-react'
+import { Redo2, Target, Undo2, WandSparkles } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '../../../components/ui/Button'
 import { CheckboxField } from '../../../components/ui/Checkbox'
@@ -7,10 +7,11 @@ import { TextField } from '../../../components/ui/Field'
 import { SegmentedControl } from '../../../components/ui/SegmentedControl'
 import { calculateTotals } from '../../../domain/calc'
 import { MONEY_SCALE, parseDecimal } from '../../../domain/decimal'
+import { sameData } from '../../../domain/equal'
 import { formatMoney } from '../../../domain/format'
 import { currencyDigits } from '../../../domain/money'
 import { fitToTotal, includeTaxInPrices, type PriceFit } from '../../../domain/pricing'
-import type { Discount, Invoice, LineItem } from '../../../domain/schema'
+import type { Discount, Invoice, LineItem, TaxMode, TaxPricing } from '../../../domain/schema'
 import { validateMoney, validatePercent } from '../validators'
 import type { InvoiceUpdater } from './types'
 
@@ -28,6 +29,15 @@ export function TaxDiscountSection({
   update: InvoiceUpdater
 }) {
   const { discount } = invoice
+  // Kept here so hiding the price tools doesn't lose what can be undone.
+  const history = useState<PriceHistory>(EMPTY_HISTORY)
+  const tax = invoice.taxLabel || 'Tax'
+  const pricing: { value: TaxPricing; label: string }[] = [
+    { value: 'added', label: `${tax} added on top` },
+    { value: 'included', label: `${tax} included` },
+  ]
+  // Invoices saved with the old tax-inclusive prices always get the offer to convert them.
+  const showPriceTools = invoice.taxPricing === 'included' || invoice.taxMode === 'inclusive'
 
   return (
     <div className="flex flex-col gap-4">
@@ -39,6 +49,24 @@ export function TaxDiscountSection({
           onChange={(e) => update((inv) => ({ ...inv, taxLabel: e.target.value }))}
         />
       </div>
+
+      <div className="flex flex-col gap-1.5">
+        <span className="text-sm font-medium text-fg-muted">Prices agreed with this client</span>
+        <SegmentedControl
+          label="Prices agreed with this client"
+          options={pricing}
+          value={invoice.taxPricing}
+          onChange={(taxPricing) => update((inv) => ({ ...inv, taxPricing }))}
+          className="self-start"
+          size="sm"
+        />
+        <p className="text-xs text-fg-subtle">
+          {invoice.taxPricing === 'included'
+            ? `The price you agreed already contains ${tax}. Paperless works out the rates before ${tax}, which is what the invoice shows.`
+            : `${tax} is added to the rates you type.`}
+        </p>
+      </div>
+
       <CheckboxField
         label={`Show ${invoice.taxLabel || 'tax'} on each line`}
         hint="Adds the rate, amount and total with tax to every line, as tax invoices in the Gulf and India do."
@@ -46,7 +74,7 @@ export function TaxDiscountSection({
         onChange={(e) => update((inv) => ({ ...inv, showLineTax: e.target.checked }))}
       />
 
-      <PriceTools invoice={invoice} update={update} />
+      {showPriceTools && <PriceTools invoice={invoice} update={update} history={history} />}
 
       <div className="flex flex-col gap-1.5">
         <span className="text-sm font-medium text-fg-muted">Discount on the whole invoice</span>
@@ -89,37 +117,80 @@ export function TaxDiscountSection({
   )
 }
 
-type Result = { message: string; undo: LineItem[]; undoMode: Invoice['taxMode'] }
+type Prices = { items: LineItem[]; taxMode: TaxMode }
+type PriceChange = { before: Prices; after: Prices; message: string }
+/** Changes that can be undone, oldest first, and those undone that can be redone. */
+type PriceHistory = { done: PriceChange[]; undone: PriceChange[] }
+
+const EMPTY_HISTORY: PriceHistory = { done: [], undone: [] }
+
+const pricesOf = (invoice: Invoice): Prices => ({
+  items: invoice.items,
+  taxMode: invoice.taxMode,
+})
 
 /**
  * Working back from the total. "Tax included" lowers every rate so the tax fits inside today's
  * total (100.00 becomes 95.24 + 4.76 VAT). A grand total typed in raises or lowers every rate
- * equally to reach it. Rates keep the currency's decimals, and either can be undone.
+ * equally to reach it. Rates keep the currency's decimals. Every change can be undone and
+ * redone, one step at a time, so pressing a button twice by mistake is easy to take back.
  */
-function PriceTools({ invoice, update }: { invoice: Invoice; update: InvoiceUpdater }) {
+function PriceTools({
+  invoice,
+  update,
+  history: [history, setHistory],
+}: {
+  invoice: Invoice
+  update: InvoiceUpdater
+  history: [PriceHistory, (history: PriceHistory) => void]
+}) {
   const [target, setTarget] = useState('')
-  const [result, setResult] = useState<Result | null>(null)
   const totals = calculateTotals(invoice)
   const money = (minor: number) => formatMoney(minor, invoice.currency, invoice.locale)
   const taxLabel = invoice.taxLabel || 'tax'
   const legacyInclusive = invoice.taxMode === 'inclusive'
 
-  function apply(next: Invoice, fit: PriceFit, message: string) {
-    setResult({
+  // The prices the history expects to find. Once the items are edited by hand, undoing would
+  // throw those edits away, so the history no longer applies.
+  const last = history.done.at(-1)
+  const expected = last ? last.after : history.undone.at(-1)?.before
+  const { done, undone } =
+    expected && sameData(expected, pricesOf(invoice)) ? history : EMPTY_HISTORY
+
+  function apply(next: Prices, fit: PriceFit, message: string) {
+    const change: PriceChange = {
+      before: pricesOf(invoice),
+      after: next,
       message: fit.exact
         ? message
         : `${message} That’s as close as prices with ${currencyDigits(invoice.currency)} decimals can get.`,
-      undo: invoice.items,
-      undoMode: invoice.taxMode,
-    })
-    update((inv) => ({ ...inv, taxMode: next.taxMode, items: next.items }))
+    }
+    setHistory({ done: [...done, change], undone: [] })
+    // Converted old prices were agreed with tax included, so the tools stay open for undoing.
+    update((inv) => ({
+      ...inv,
+      ...next,
+      taxPricing: legacyInclusive ? 'included' : inv.taxPricing,
+    }))
+  }
+
+  function undo() {
+    const change = done.at(-1)!
+    setHistory({ done: done.slice(0, -1), undone: [...undone, change] })
+    update((inv) => ({ ...inv, ...change.before }))
+  }
+
+  function redo() {
+    const change = undone.at(-1)!
+    setHistory({ done: [...done, change], undone: undone.slice(0, -1) })
+    update((inv) => ({ ...inv, ...change.after }))
   }
 
   function includeTax() {
     const fit = includeTaxInPrices(invoice)
     if (!fit) return
     apply(
-      fit.invoice,
+      pricesOf(fit.invoice),
       fit,
       `Rates lowered so the grand total is ${money(fit.total)} with ${taxLabel}.`,
     )
@@ -133,7 +204,7 @@ function PriceTools({ invoice, update }: { invoice: Invoice; update: InvoiceUpda
     const fit = fitToTotal(invoice, minor)
     if (!fit) return
     apply(
-      { ...invoice, items: fit.items },
+      { items: fit.items, taxMode: invoice.taxMode },
       fit,
       `Rates ${minor < totals.total ? 'lowered' : 'raised'} so the grand total is ${money(fit.total)}.`,
     )
@@ -142,6 +213,7 @@ function PriceTools({ invoice, update }: { invoice: Invoice; update: InvoiceUpda
 
   const hasPrices = totals.total > 0
   const targetError = target && validateMoney(target)
+  const status = done.at(-1)?.message ?? 'Back to the rates as they were.'
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-line p-3">
@@ -150,7 +222,7 @@ function PriceTools({ invoice, update }: { invoice: Invoice; update: InvoiceUpda
         <p className="text-xs text-fg-subtle">
           {legacyInclusive
             ? `This invoice was made with prices that include ${taxLabel}. Convert them to before-${taxLabel} rates, keeping the total.`
-            : `Agreed a price with ${taxLabel} included? Let Paperless work out the rates.`}
+            : `Type the price you agreed as the rate, then let Paperless take the ${taxLabel} out of it, or aim for a grand total.`}
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -191,24 +263,31 @@ function PriceTools({ invoice, update }: { invoice: Invoice; update: InvoiceUpda
           Fit rates
         </Button>
       </div>
-      {result && (
-        <div
-          role="status"
-          className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-accent-soft px-3 py-2 text-sm"
-        >
-          <span>{result.message}</span>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="-my-1 h-8 px-3"
-            onClick={() => {
-              update((inv) => ({ ...inv, items: result.undo, taxMode: result.undoMode }))
-              setResult(null)
-            }}
-          >
-            <Undo2 />
-            Undo
-          </Button>
+      {(done.length > 0 || undone.length > 0) && (
+        <div className="flex items-center justify-between gap-2 rounded-md bg-accent-soft py-1.5 pr-1.5 pl-3 text-sm">
+          <span role="status">{status}</span>
+          <div role="group" aria-label="Rate changes" className="flex shrink-0 gap-0.5">
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              aria-label="Undo"
+              title={done.length ? `Undo (${done.length} left)` : 'Nothing to undo'}
+              disabled={done.length === 0}
+              onClick={undo}
+            >
+              <Undo2 />
+            </Button>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              aria-label="Redo"
+              title={undone.length ? `Redo (${undone.length} left)` : 'Nothing to redo'}
+              disabled={undone.length === 0}
+              onClick={redo}
+            >
+              <Redo2 />
+            </Button>
+          </div>
         </div>
       )}
     </div>

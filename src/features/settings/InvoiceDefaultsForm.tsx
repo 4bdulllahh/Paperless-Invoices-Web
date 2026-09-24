@@ -1,5 +1,6 @@
 import { useMemo, type ReactNode } from 'react'
 import { CheckboxField } from '../../components/ui/Checkbox'
+import { ColorPicker } from '../../components/ui/ColorPicker'
 import { CommitTextField } from '../../components/ui/CommitTextField'
 import { SelectField, TextField } from '../../components/ui/Field'
 import { SegmentedControl } from '../../components/ui/SegmentedControl'
@@ -199,9 +200,23 @@ export function InvoiceDefaultsForm({ showCountry = true }: { showCountry?: bool
             ))}
           </SelectField>
         </div>
+        <div className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-fg-muted">PDF colour</span>
+          <ColorPicker
+            label="PDF colour for new invoices"
+            align="left"
+            className="self-start"
+            value={settings.accentColor}
+            onChange={(accentColor) => updateSettings({ accentColor })}
+          />
+          <p className="text-xs text-fg-subtle">
+            Change it for one invoice from the preview. Text on it turns dark or white to stay
+            readable.
+          </p>
+        </div>
         <CheckboxField
           label="Write the total in words"
-          hint="e.g. “Four thousand two hundred US dollars only”, as many countries expect."
+          hint="e.g. “Four Thousand Two Hundred US Dollars.”, as many countries expect."
           checked={settings.amountInWords}
           onChange={(e) => updateSettings({ amountInWords: e.target.checked })}
         />

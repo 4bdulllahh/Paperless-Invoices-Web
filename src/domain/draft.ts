@@ -76,6 +76,8 @@ export function createInvoiceDraft({ id, lineId, today, settings, business }: Dr
     payment: null,
     signed: settings.signInvoices,
     showLineTax: settings.showLineTax,
+    taxPricing: 'added',
+    accentColor: settings.accentColor,
   }
 }
 
@@ -105,6 +107,7 @@ export function followDefaults(invoice: Invoice, before: Settings, after: Settin
   follow('paymentTermsDays', before.paymentTermsDays, after.paymentTermsDays)
   follow('signed', before.signInvoices, after.signInvoices)
   follow('showLineTax', before.showLineTax, after.showLineTax)
+  follow('accentColor', before.accentColor, after.accentColor)
   follow(
     'dueDate',
     addDays(invoice.issueDate, before.paymentTermsDays),

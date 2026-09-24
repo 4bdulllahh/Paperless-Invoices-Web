@@ -36,7 +36,7 @@ describe('buildInvoiceViewModel', () => {
     )
     expect(tax).toMatchObject({
       title: 'Tax Invoice',
-      totalInWords: 'Four thousand two hundred forty-seven US dollars and seventy-six cents',
+      totalInWords: 'Four Thousand Two Hundred Forty-Seven US Dollars And Seventy-Six Cents.',
     })
     expect(tax.to.taxIdLabel).toBe('TRN')
 
@@ -44,6 +44,12 @@ describe('buildInvoiceViewModel', () => {
     const blank = buildInvoiceViewModel(createSampleInvoice({ title: '', taxIdLabel: '' }))
     expect(blank.title).toBe('Invoice')
     expect(blank.from.taxIdLabel).toBe('Tax ID')
+  })
+
+  it('carries the PDF colour and text colours that stay readable on it', () => {
+    expect(buildInvoiceViewModel(createSampleInvoice()).theme.onAccent).toBe('#252422')
+    const navy = buildInvoiceViewModel(createSampleInvoice({ accentColor: '#1f3a68' }))
+    expect(navy.theme).toMatchObject({ accent: '#1f3a68', onAccent: '#ffffff' })
   })
 
   it('formats each line', () => {

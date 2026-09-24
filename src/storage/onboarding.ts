@@ -1,3 +1,4 @@
+import { DEFAULT_ACCENT } from '../domain/colors'
 import { addDays, todayIso } from '../domain/dates'
 import { isPristineDraft } from '../domain/draft'
 import { DEFAULT_NUMBER_PATTERN, formatInvoiceNumber } from '../domain/numbering'
@@ -32,6 +33,7 @@ const SAMPLE_SETTINGS: Settings = {
   dueMode: 'date',
   showLineTax: false,
   signInvoices: false,
+  accentColor: DEFAULT_ACCENT,
 }
 
 /** "Try with sample data": a fictional business and a filled-in invoice to explore. */

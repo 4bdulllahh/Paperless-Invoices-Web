@@ -3,7 +3,6 @@ import { FONTS } from './fonts'
 import {
   cellStyle,
   cellText,
-  FLAME,
   HAIRLINE,
   INK,
   itemColumns,
@@ -45,7 +44,6 @@ const s = StyleSheet.create({
     width: SIDEBAR,
     backgroundColor: PAPER_TINT,
     borderRightWidth: 3,
-    borderRightColor: FLAME,
   },
   // First page only.
   sidebar: {
@@ -74,7 +72,6 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     paddingBottom: 6,
     borderBottomWidth: 1.5,
-    borderBottomColor: INK,
   },
   headText: { fontSize: 7, color: MUTED, textTransform: 'uppercase', letterSpacing: 1 },
   row: {
@@ -127,10 +124,11 @@ export function CorporateTemplate({ view, logo, payment, qr, signature, stamp }:
   const columns = itemColumns(view, 357)
   const balance = view.totals.find((row) => row.kind === 'balance')!
   const summary = view.totals.filter((row) => row.kind !== 'balance')
+  const { theme } = view
 
   return (
     <Page size="A4" style={s.page}>
-      <View style={s.sidebarTint} fixed />
+      <View style={[s.sidebarTint, { borderRightColor: theme.accent }]} fixed />
       <View style={s.sidebar}>
         <View>
           {logo && <LogoImage logo={logo} maxWidth={SIDEBAR - 44} maxHeight={50} />}
@@ -161,7 +159,7 @@ export function CorporateTemplate({ view, logo, payment, qr, signature, stamp }:
       <Text style={s.number}>{view.number}</Text>
 
       <View style={s.table}>
-        <View style={s.headRow} fixed>
+        <View style={[s.headRow, { borderBottomColor: theme.accentOnPaper }]} fixed>
           {columns.map((column) => (
             <Text key={column.key} style={[s.headText, cellStyle(column)]}>
               {column.label}

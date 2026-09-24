@@ -237,9 +237,36 @@ describe('EditorPane: tax included and grand totals', () => {
     type(within(item(1)).getByLabelText('Unit price'), price)
     type(within(item(1)).getByLabelText('Tax %'), rate)
   }
+  function taxIncluded() {
+    fireEvent.click(screen.getByRole('radio', { name: 'Tax included' }))
+  }
+
+  it('offers the price tools only when the client agreed prices with tax included', () => {
+    priced('100')
+    expect(screen.getByRole('radio', { name: 'Tax added on top' })).toBeChecked()
+    expect(screen.queryByRole('button', { name: /Include tax/ })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Grand total you want/)).not.toBeInTheDocument()
+
+    taxIncluded()
+    expect(draft().taxPricing).toBe('included')
+    expect(screen.getByRole('button', { name: 'Include tax in $100.00' })).toBeInTheDocument()
+    expect(screen.getByLabelText(/Grand total you want/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Tax added on top' }))
+    expect(draft().taxPricing).toBe('added')
+    expect(screen.queryByRole('button', { name: /Include tax/ })).not.toBeInTheDocument()
+  })
+
+  it('names the choice after the tax', () => {
+    renderEditor()
+    type(screen.getByLabelText('Tax name'), 'VAT')
+    expect(screen.getByRole('radio', { name: 'VAT included' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'VAT added on top' })).toBeInTheDocument()
+  })
 
   it('lowers the rates so the tax fits inside the total, and can undo it', () => {
     priced('100')
+    taxIncluded()
     fireEvent.click(screen.getByRole('button', { name: 'Include tax in $100.00' }))
     expect(draft().items[0].unitPrice).toBe('95.24')
     expect(balance()).toHaveTextContent('$100.00')
@@ -248,10 +275,48 @@ describe('EditorPane: tax included and grand totals', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
     expect(draft().items[0].unitPrice).toBe('100')
     expect(balance()).toHaveTextContent('$105.00')
+    expect(screen.getByRole('status')).toHaveTextContent('Back to the rates as they were')
+  })
+
+  it('undoes and redoes every step when a button is pressed twice', () => {
+    priced('100')
+    taxIncluded()
+    fireEvent.click(screen.getByRole('button', { name: 'Include tax in $100.00' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Include tax in $95.24' }))
+    expect(draft().items[0].unitPrice).toBe('90.70')
+    const undo = screen.getByRole('button', { name: 'Undo' })
+    const redo = screen.getByRole('button', { name: 'Redo' })
+    expect(redo).toBeDisabled()
+
+    fireEvent.click(undo)
+    expect(draft().items[0].unitPrice).toBe('95.24')
+    fireEvent.click(undo)
+    expect(draft().items[0].unitPrice).toBe('100')
+    expect(undo).toBeDisabled()
+
+    fireEvent.click(redo)
+    expect(draft().items[0].unitPrice).toBe('95.24')
+    fireEvent.click(redo)
+    expect(draft().items[0].unitPrice).toBe('90.70')
+    expect(redo).toBeDisabled()
+
+    // A new change can't be followed by redoing an old one.
+    fireEvent.click(undo)
+    fireEvent.click(screen.getByRole('button', { name: 'Include tax in $95.24' }))
+    expect(screen.getByRole('button', { name: 'Redo' })).toBeDisabled()
+  })
+
+  it('forgets what it could undo once the rates are edited by hand', () => {
+    priced('100')
+    taxIncluded()
+    fireEvent.click(screen.getByRole('button', { name: 'Include tax in $100.00' }))
+    type(within(item(1)).getByLabelText('Unit price'), '80')
+    expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument()
   })
 
   it('fits the rates to a grand total you type', () => {
     priced('100')
+    taxIncluded()
     type(screen.getByLabelText(/Grand total you want/), '200')
     fireEvent.click(screen.getByRole('button', { name: 'Fit rates' }))
     expect(draft().items[0].unitPrice).toBe('190.48')
@@ -266,6 +331,7 @@ describe('EditorPane: tax included and grand totals', () => {
 
   it('needs a tax rate before tax can be included', () => {
     priced('100', '')
+    taxIncluded()
     expect(screen.getByRole('button', { name: 'Include tax in $100.00' })).toBeDisabled()
   })
 
@@ -273,7 +339,13 @@ describe('EditorPane: tax included and grand totals', () => {
     act(() => useDraftStore.getState().updateInvoice((inv) => ({ ...inv, taxMode: 'inclusive' })))
     priced('105')
     fireEvent.click(screen.getByRole('button', { name: 'Convert prices' }))
-    expect(draft()).toMatchObject({ taxMode: 'exclusive', items: [{ unitPrice: '100.00' }] })
+    expect(draft()).toMatchObject({
+      taxMode: 'exclusive',
+      taxPricing: 'included',
+      items: [{ unitPrice: '100.00' }],
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(draft()).toMatchObject({ taxMode: 'inclusive', items: [{ unitPrice: '105' }] })
   })
 
   it('shows the tax and total on each line when asked', () => {

@@ -54,6 +54,25 @@ describe('invoiceSchema', () => {
     expect(parsed.items[0]).toMatchObject({ unit: '', code: '' })
   })
 
+  it('fills in fields added in 1.3 for invoices saved before', () => {
+    const { taxPricing: _p, accentColor: _a, ...older } = createSampleInvoice()
+    expect(invoiceSchema.parse(older)).toMatchObject({
+      taxPricing: 'added',
+      accentColor: '#eb5e28',
+    })
+  })
+
+  it('only saves six-digit hex colours', () => {
+    const ok = (accentColor: string) =>
+      invoiceSchema.safeParse(createSampleInvoice({ accentColor })).success
+    expect([ok('#1f3a68'), ok('#1F3A68'), ok('navy'), ok('#abc')]).toEqual([
+      true,
+      false,
+      false,
+      false,
+    ])
+  })
+
   it('takes a supply date or none, but not a malformed one', () => {
     const ok = (supplyDate: string) =>
       invoiceSchema.safeParse(createSampleInvoice({ supplyDate })).success

@@ -4,7 +4,6 @@ import {
   CREAM,
   cellStyle,
   cellText,
-  FLAME,
   HAIRLINE,
   INK,
   itemColumns,
@@ -23,7 +22,7 @@ import {
 
 const PAD = 44
 
-/** Bold: a full-width flame header with an oversized title, and an ink totals block. */
+/** Bold: a full-width accent header with an oversized title, and an ink totals block. */
 const s = StyleSheet.create({
   page: {
     fontFamily: FONTS.sans,
@@ -34,7 +33,6 @@ const s = StyleSheet.create({
     paddingHorizontal: PAD,
   },
   header: {
-    backgroundColor: FLAME,
     marginTop: -PAD,
     marginHorizontal: -PAD,
     paddingHorizontal: PAD,
@@ -66,7 +64,7 @@ const s = StyleSheet.create({
   partyName: { fontFamily: FONTS.display, fontWeight: 700, fontSize: 12, marginBottom: 2 },
   partyLine: { color: OLIVE },
   due: { alignItems: 'flex-end' },
-  dueAmount: { fontFamily: FONTS.display, fontWeight: 700, fontSize: 22, color: FLAME },
+  dueAmount: { fontFamily: FONTS.display, fontWeight: 700, fontSize: 22 },
   table: { marginTop: 26 },
   headRow: {
     flexDirection: 'row',
@@ -113,9 +111,8 @@ const s = StyleSheet.create({
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 2,
-    borderTopColor: FLAME,
   },
-  balanceText: { fontFamily: FONTS.display, fontWeight: 700, fontSize: 13, color: FLAME },
+  balanceText: { fontFamily: FONTS.display, fontWeight: 700, fontSize: 13 },
   words: { marginTop: 12, fontSize: 8.5, color: OLIVE },
   wordsLabel: { fontWeight: 600, color: INK },
   footer: {
@@ -132,12 +129,15 @@ export function BoldTemplate({ view, logo, payment, qr, signature, stamp }: Temp
   const columns = itemColumns(view, 487)
   const balance = view.totals.find((row) => row.kind === 'balance')!
   const summary = view.totals.filter((row) => row.kind !== 'balance')
+  const { theme } = view
+  const onAccent = { color: theme.onAccent }
+  const onInk = { color: theme.accentOnInk }
 
   return (
     <Page size="A4" style={s.page}>
-      <View style={s.header}>
+      <View style={[s.header, { backgroundColor: theme.accent }]}>
         <View style={s.headerTop}>
-          <Text style={s.title}>{view.title}</Text>
+          <Text style={[s.title, onAccent]}>{view.title}</Text>
           {logo && (
             <View style={s.logoTile}>
               <LogoImage logo={logo} maxWidth={100} maxHeight={44} />
@@ -148,8 +148,8 @@ export function BoldTemplate({ view, logo, payment, qr, signature, stamp }: Temp
           {[['Number', view.number], ...view.facts.map((fact) => [fact.label, fact.value])].map(
             ([label, value]) => (
               <View key={label}>
-                <Text style={s.factLabel}>{label}</Text>
-                <Text style={s.factValue}>{value}</Text>
+                <Text style={[s.factLabel, onAccent]}>{label}</Text>
+                <Text style={[s.factValue, onAccent]}>{value}</Text>
               </View>
             ),
           )}
@@ -167,7 +167,7 @@ export function BoldTemplate({ view, logo, payment, qr, signature, stamp }: Temp
         </View>
         <View style={s.due}>
           <Text style={s.label}>{balance.label}</Text>
-          <Text style={s.dueAmount}>{view.balanceDue}</Text>
+          <Text style={[s.dueAmount, { color: theme.accentOnPaper }]}>{view.balanceDue}</Text>
         </View>
       </View>
 
@@ -218,9 +218,9 @@ export function BoldTemplate({ view, logo, payment, qr, signature, stamp }: Temp
                 <Text>{row.value}</Text>
               </View>
             ))}
-            <View style={s.balance}>
-              <Text style={s.balanceText}>{balance.label}</Text>
-              <Text style={s.balanceText}>{balance.value}</Text>
+            <View style={[s.balance, { borderTopColor: theme.accentOnInk }]}>
+              <Text style={[s.balanceText, onInk]}>{balance.label}</Text>
+              <Text style={[s.balanceText, onInk]}>{balance.value}</Text>
             </View>
           </View>
           <SignatureBlock

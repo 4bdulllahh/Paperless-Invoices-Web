@@ -4,7 +4,6 @@ import {
   CREAM,
   cellStyle,
   cellText,
-  FLAME,
   HAIRLINE,
   INK,
   itemColumns,
@@ -58,7 +57,7 @@ const s = StyleSheet.create({
   number: { color: SAND, fontSize: 10, textAlign: 'right', marginTop: 2 },
   meta: { flexDirection: 'row', gap: 10, marginTop: 22 },
   metaCell: { flex: 1, borderRadius: 8, backgroundColor: PAPER_TINT, padding: 10 },
-  metaDue: { flex: 1.3, borderRadius: 8, backgroundColor: FLAME, padding: 10 },
+  metaDue: { flex: 1.3, borderRadius: 8, padding: 10 },
   label: {
     fontSize: 7,
     color: MUTED,
@@ -66,9 +65,8 @@ const s = StyleSheet.create({
     letterSpacing: 0.9,
     marginBottom: 3,
   },
-  labelOnFlame: {
+  labelOnAccent: {
     fontSize: 7,
-    color: INK,
     textTransform: 'uppercase',
     letterSpacing: 0.9,
     marginBottom: 3,
@@ -124,7 +122,6 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: FLAME,
     borderRadius: 8,
     paddingVertical: 9,
     paddingHorizontal: 10,
@@ -148,6 +145,8 @@ export function ModernTemplate({ view, logo, payment, qr, signature, stamp }: Te
   const columns = itemColumns(view, 495)
   const balance = view.totals.find((row) => row.kind === 'balance')!
   const summary = view.totals.filter((row) => row.kind !== 'balance')
+  const { theme } = view
+  const onAccent = { color: theme.onAccent }
 
   return (
     <Page size="A4" style={s.page}>
@@ -173,9 +172,9 @@ export function ModernTemplate({ view, logo, payment, qr, signature, stamp }: Te
             <Text style={s.metaValue}>{fact.value}</Text>
           </View>
         ))}
-        <View style={s.metaDue}>
-          <Text style={s.labelOnFlame}>Balance due</Text>
-          <Text style={s.metaDueValue}>{view.balanceDue}</Text>
+        <View style={[s.metaDue, { backgroundColor: theme.accent }]}>
+          <Text style={[s.labelOnAccent, onAccent]}>Balance due</Text>
+          <Text style={[s.metaDueValue, onAccent]}>{view.balanceDue}</Text>
         </View>
       </View>
 
@@ -236,9 +235,9 @@ export function ModernTemplate({ view, logo, payment, qr, signature, stamp }: Te
               <Text>{row.value}</Text>
             </View>
           ))}
-          <View style={s.balance}>
-            <Text style={s.balanceText}>{balance.label}</Text>
-            <Text style={s.balanceText}>{balance.value}</Text>
+          <View style={[s.balance, { backgroundColor: theme.accent }]}>
+            <Text style={[s.balanceText, onAccent]}>{balance.label}</Text>
+            <Text style={[s.balanceText, onAccent]}>{balance.value}</Text>
           </View>
           <SignatureBlock
             signed={view.signed}

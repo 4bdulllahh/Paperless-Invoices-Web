@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import {
+  accentColorSchema,
   DUE_MODES,
   invoiceSchema,
   partySchema,
@@ -102,6 +103,8 @@ export const settingsSchema = z.object({
   showLineTax: z.boolean().default(false),
   /** Sign new invoices: print the signature and stamp, or a line to sign on. */
   signInvoices: z.boolean().default(false),
+  /** Added in 1.3: the PDF's theme colour for new invoices. */
+  accentColor: accentColorSchema,
 })
 
 export const clientSchema = partySchema.extend({

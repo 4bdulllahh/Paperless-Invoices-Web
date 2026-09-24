@@ -23,7 +23,6 @@ export const SAND = '#ccc5b9'
 export const HAIRLINE = '#e0dbd0'
 export const CREAM = '#fffcf2'
 export const PAPER_TINT = '#f6f2e9'
-export const FLAME = '#eb5e28'
 
 export type Style = Styles[string]
 

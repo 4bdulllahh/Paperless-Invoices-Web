@@ -1,4 +1,5 @@
 import { calculateTotals, type InvoiceTotals } from './calc'
+import { pdfTheme, type PdfTheme } from './colors'
 import { taxIdRules } from './compliance'
 import { parseDecimalOrZero, RATE_SCALE } from './decimal'
 import {
@@ -51,6 +52,8 @@ export type InvoiceViewModel = {
   notes: string
   /** Print the signature and stamp, or a line to sign on. */
   signed: boolean
+  /** The accent colour and the text colours that stay readable with it. */
+  theme: PdfTheme
   /** The raw calculation, for anything that needs numbers rather than text. */
   raw: InvoiceTotals
 }
@@ -208,6 +211,7 @@ export function buildInvoiceViewModel(invoice: Invoice): InvoiceViewModel {
     totalInWords: invoice.amountInWords ? amountInWords(totals.total, currency) : null,
     notes: invoice.notes.trim(),
     signed: invoice.signed,
+    theme: pdfTheme(invoice.accentColor),
     raw: totals,
   }
 }

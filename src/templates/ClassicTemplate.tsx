@@ -7,7 +7,6 @@ import {
   itemColumns,
   MUTED,
   OLIVE,
-  PAPER_TINT,
   partyLines,
   type TemplateProps,
 } from './layout'
@@ -41,8 +40,8 @@ const s = StyleSheet.create({
     textAlign: 'center',
   },
   contact: { fontSize: 8.5, color: OLIVE, textAlign: 'center' },
-  doubleRule: { marginTop: 14, borderTopWidth: 1.25, borderTopColor: INK, paddingTop: 2 },
-  thinRule: { borderTopWidth: 0.5, borderTopColor: INK },
+  doubleRule: { marginTop: 14, borderTopWidth: 1.25, paddingTop: 2 },
+  thinRule: { borderTopWidth: 0.5 },
   title: {
     fontSize: 19,
     letterSpacing: 5,
@@ -62,7 +61,6 @@ const s = StyleSheet.create({
   table: { marginTop: 24, borderWidth: 0.75, borderColor: INK },
   headRow: {
     flexDirection: 'row',
-    backgroundColor: PAPER_TINT,
     borderBottomWidth: 0.75,
     borderBottomColor: INK,
   },
@@ -102,7 +100,6 @@ const s = StyleSheet.create({
     paddingHorizontal: 10,
     marginTop: 3,
     borderTopWidth: 1.25,
-    borderTopColor: INK,
   },
   balanceText: { fontWeight: 700, fontSize: 11 },
   words: { marginTop: 12, fontSize: 8.5, fontStyle: 'italic' },
@@ -123,6 +120,8 @@ export function ClassicTemplate({ view, logo, payment, qr, signature, stamp }: T
   const columns = itemColumns(view, 495)
   const balance = view.totals.find((row) => row.kind === 'balance')!
   const summary = view.totals.filter((row) => row.kind !== 'balance')
+  const { theme } = view
+  const rule = { borderTopColor: theme.accentOnPaper }
   const [address, contact] = [
     view.from.addressLines.join(' · '),
     partyLines({ ...view.from, addressLines: [] }).join(' · '),
@@ -136,8 +135,8 @@ export function ClassicTemplate({ view, logo, payment, qr, signature, stamp }: T
         {address ? <Text style={s.contact}>{address}</Text> : null}
         {contact ? <Text style={s.contact}>{contact}</Text> : null}
       </View>
-      <View style={s.doubleRule}>
-        <View style={s.thinRule} />
+      <View style={[s.doubleRule, rule]}>
+        <View style={[s.thinRule, rule]} />
       </View>
 
       <Text style={s.title}>{view.title}</Text>
@@ -161,7 +160,7 @@ export function ClassicTemplate({ view, logo, payment, qr, signature, stamp }: T
       </View>
 
       <View style={s.table}>
-        <View style={s.headRow} fixed>
+        <View style={[s.headRow, { backgroundColor: theme.accentTint }]} fixed>
           {columns.map((column, i) => (
             <Text
               key={column.key}
@@ -212,7 +211,7 @@ export function ClassicTemplate({ view, logo, payment, qr, signature, stamp }: T
               <Text>{row.value}</Text>
             </View>
           ))}
-          <View style={s.balance}>
+          <View style={[s.balance, rule]}>
             <Text style={s.balanceText}>{balance.label}</Text>
             <Text style={s.balanceText}>{balance.value}</Text>
           </View>

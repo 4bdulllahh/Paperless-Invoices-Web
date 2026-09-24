@@ -8,7 +8,6 @@ import {
   itemColumns,
   MUTED,
   OLIVE,
-  PAPER_TINT,
   SAND,
   type TemplateProps,
 } from './layout'
@@ -39,7 +38,6 @@ const s = StyleSheet.create({
     alignItems: 'flex-start',
     paddingBottom: 10,
     borderBottomWidth: 1.5,
-    borderBottomColor: INK,
   },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   businessName: { fontFamily: FONTS.display, fontWeight: 700, fontSize: 12 },
@@ -68,7 +66,6 @@ const s = StyleSheet.create({
   table: { marginTop: 10, borderWidth: 0.75, borderColor: SAND, borderRadius: 3 },
   headRow: {
     flexDirection: 'row',
-    backgroundColor: PAPER_TINT,
     paddingVertical: 5,
     paddingHorizontal: 7,
     borderBottomWidth: 0.75,
@@ -109,7 +106,6 @@ const s = StyleSheet.create({
     marginTop: 4,
     paddingTop: 4,
     borderTopWidth: 1.5,
-    borderTopColor: INK,
   },
   balanceText: { fontFamily: FONTS.display, fontWeight: 700, fontSize: 10 },
   words: { marginTop: 8, fontSize: 7.5, color: OLIVE },
@@ -129,10 +125,11 @@ export function CompactTemplate({ view, logo, payment, qr, signature, stamp }: T
   const columns = itemColumns(view, 517)
   const balance = view.totals.find((row) => row.kind === 'balance')!
   const summary = view.totals.filter((row) => row.kind !== 'balance')
+  const { theme } = view
 
   return (
     <Page size="A4" style={s.page}>
-      <View style={s.top}>
+      <View style={[s.top, { borderBottomColor: theme.accentOnPaper }]}>
         <View style={s.brand}>
           {logo && <LogoImage logo={logo} maxWidth={80} maxHeight={32} />}
           {view.from.name ? <Text style={s.businessName}>{view.from.name}</Text> : null}
@@ -168,7 +165,7 @@ export function CompactTemplate({ view, logo, payment, qr, signature, stamp }: T
       </View>
 
       <View style={s.table}>
-        <View style={s.headRow} fixed>
+        <View style={[s.headRow, { backgroundColor: theme.accentTint }]} fixed>
           {columns.map((column) => (
             <Text key={column.key} style={[s.headText, cellStyle(column)]}>
               {column.label}
@@ -217,7 +214,7 @@ export function CompactTemplate({ view, logo, payment, qr, signature, stamp }: T
               <Text>{row.value}</Text>
             </View>
           ))}
-          <View style={s.balance}>
+          <View style={[s.balance, { borderTopColor: theme.accentOnPaper }]}>
             <Text style={s.balanceText}>{balance.label}</Text>
             <Text style={s.balanceText}>{balance.value}</Text>
           </View>

@@ -38,34 +38,43 @@ describe('numberToWords', () => {
 describe('amountInWords', () => {
   it('names the currency and its minor unit, singular or plural', () => {
     expect(amountInWords(424776, 'USD')).toBe(
-      'Four thousand two hundred forty-seven US dollars and seventy-six cents',
+      'Four Thousand Two Hundred Forty-Seven US Dollars And Seventy-Six Cents.',
     )
-    expect(amountInWords(101, 'USD')).toBe('One US dollar and one cent')
-    expect(amountInWords(5000, 'GBP')).toBe('Fifty pounds sterling')
-    expect(amountInWords(1, 'GBP')).toBe('Zero pounds sterling and one penny')
+    expect(amountInWords(101, 'USD')).toBe('One US Dollar And One Cent.')
+    expect(amountInWords(5000, 'GBP')).toBe('Fifty Pounds Sterling.')
+    expect(amountInWords(1, 'GBP')).toBe('Zero Pounds Sterling And One Penny.')
   })
 
-  it('uses lakhs and ends with “only” for rupees', () => {
+  it('capitalises every word and ends with a full stop', () => {
+    expect(amountInWords(10200, 'USD')).toBe('One Hundred Two US Dollars.')
+    expect(amountInWords(643860, 'AED')).toBe(
+      'Six Thousand Four Hundred Thirty-Eight Dirhams And Sixty Fils Only.',
+    )
+    expect(amountInWords(4500, 'SEK')).toBe('Forty-Five Kronor.')
+    expect(amountInWords(5, 'SEK')).toBe('Zero Kronor And Five Öre.')
+  })
+
+  it('uses lakhs and ends with “Only” for rupees', () => {
     expect(amountInWords(32_000_050, 'INR')).toBe(
-      'Three lakh twenty thousand rupees and fifty paise only',
+      'Three Lakh Twenty Thousand Rupees And Fifty Paise Only.',
     )
   })
 
-  it('ends Gulf amounts with “only”, with three-decimal currencies', () => {
+  it('ends Gulf amounts with “Only”, with three-decimal currencies', () => {
     expect(amountInWords(424776, 'AED')).toBe(
-      'Four thousand two hundred forty-seven dirhams and seventy-six fils only',
+      'Four Thousand Two Hundred Forty-Seven Dirhams And Seventy-Six Fils Only.',
     )
-    expect(amountInWords(1250, 'KWD')).toBe('One dinar and two hundred fifty fils only')
+    expect(amountInWords(1250, 'KWD')).toBe('One Dinar And Two Hundred Fifty Fils Only.')
   })
 
   it('handles currencies without minor units', () => {
-    expect(amountInWords(1500, 'JPY')).toBe('One thousand five hundred yen')
+    expect(amountInWords(1500, 'JPY')).toBe('One Thousand Five Hundred Yen.')
   })
 
   it('falls back to the currency’s English name and a fraction', () => {
     expect(amountInWords(123445, 'CZK')).toBe(
-      'One thousand two hundred thirty-four Czech Koruna and 45/100',
+      'One Thousand Two Hundred Thirty-Four Czech Koruna And 45/100.',
     )
-    expect(amountInWords(100, 'CZK')).toBe('One Czech Koruna')
+    expect(amountInWords(100, 'CZK')).toBe('One Czech Koruna.')
   })
 })

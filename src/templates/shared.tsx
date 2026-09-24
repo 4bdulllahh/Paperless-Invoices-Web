@@ -137,7 +137,7 @@ export function PaymentAndNotes({
   )
 }
 
-/** "Amount in words: Three thousand … only", under the totals, when the invoice asks for it. */
+/** "Amount in words: Three Thousand … Only.", under the totals, when the invoice asks for it. */
 export function TotalInWords({
   text,
   style,
@@ -157,8 +157,17 @@ export function TotalInWords({
 }
 
 /**
- * Stamp and signature over a line labelled "Authorised signature", at the right of the page.
- * With neither image, the line is left for signing by hand.
+ * Room for the stamp, the gap, and the signature to its right: 186 points together, the inside
+ * of the narrowest totals box the block sits in (Compact's).
+ */
+const STAMP_SIZE = 60
+const STAMP_GAP = 10
+const SIGNATURE_WIDTH = 116
+
+/**
+ * The stamp on the left and the signature on the right, side by side so neither covers the
+ * other, with the signature over a line labelled "Authorised signature". Without a signature,
+ * the line is left for signing by hand.
  */
 export function SignatureBlock({
   signed,
@@ -178,50 +187,53 @@ export function SignatureBlock({
   return (
     <View
       wrap={false}
-      style={{ alignSelf: align === 'left' ? 'flex-start' : 'flex-end', width: 190, marginTop: 10 }}
+      style={{
+        alignSelf: align === 'left' ? 'flex-start' : 'flex-end',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: STAMP_GAP,
+        marginTop: 10,
+      }}
     >
-      <View
-        style={{
-          height: 56,
-          flexDirection: 'row',
-          alignItems: 'flex-end',
-          justifyContent: 'center',
-        }}
-      >
-        {stamp && <LogoImage logo={stamp} maxWidth={80} maxHeight={56} />}
-        {signature && (
-          <View style={{ marginLeft: stamp ? -24 : 0, marginBottom: 4 }}>
-            <LogoImage logo={signature} maxWidth={120} maxHeight={42} />
-          </View>
-        )}
-      </View>
-      <View style={{ borderTopWidth: 0.75, borderTopColor: INK, marginTop: 4, paddingTop: 4 }}>
-        <Text
-          style={{
-            fontFamily: FONTS.sans,
-            fontSize: 7,
-            fontWeight: 600,
-            color: INK,
-            textAlign: 'center',
-            textTransform: 'uppercase',
-            letterSpacing: 0.8,
-          }}
-        >
-          Authorised signature
-        </Text>
-        {name ? (
+      {stamp && (
+        <View style={{ width: STAMP_SIZE, alignItems: 'center' }}>
+          <LogoImage logo={stamp} maxWidth={STAMP_SIZE} maxHeight={STAMP_SIZE} />
+        </View>
+      )}
+      <View style={{ width: SIGNATURE_WIDTH }}>
+        <View style={{ height: 46, alignItems: 'center', justifyContent: 'flex-end' }}>
+          {signature && (
+            <LogoImage logo={signature} maxWidth={SIGNATURE_WIDTH - 4} maxHeight={42} />
+          )}
+        </View>
+        <View style={{ borderTopWidth: 0.75, borderTopColor: INK, marginTop: 4, paddingTop: 4 }}>
           <Text
             style={{
               fontFamily: FONTS.sans,
-              fontSize: 7.5,
-              color: MUTED,
+              fontSize: 7,
+              fontWeight: 600,
+              color: INK,
               textAlign: 'center',
-              marginTop: 2,
+              textTransform: 'uppercase',
+              letterSpacing: 0.8,
             }}
           >
-            For {name}
+            Authorised signature
           </Text>
-        ) : null}
+          {name ? (
+            <Text
+              style={{
+                fontFamily: FONTS.sans,
+                fontSize: 7.5,
+                color: MUTED,
+                textAlign: 'center',
+                marginTop: 2,
+              }}
+            >
+              For {name}
+            </Text>
+          ) : null}
+        </View>
       </View>
     </View>
   )

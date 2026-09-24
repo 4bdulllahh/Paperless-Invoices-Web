@@ -10,13 +10,13 @@ Create professional A4 invoices, preview them live across multiple templates, ad
 
 ## Features
 
-- **Live, exact preview.** Six A4 templates (Modern, Classic, Minimal, Bold, Corporate, Compact), redrawn as you type from the same PDF you download. Zoom in with the buttons, Ctrl + scroll or a pinch.
+- **Live, exact preview.** Six A4 templates (Modern, Classic, Minimal, Bold, Corporate, Compact), redrawn as you type from the same PDF you download, in Paperless's flame or any colour you pick; text on the colour turns dark or white to stay readable. Zoom in with the buttons, Ctrl + scroll or a pinch.
 - **Set up for your country.** Paperless guesses your country from your device and fills in the currency, number and date format, what tax is called and its standard rate, how tax numbers are labelled (TRN, GSTIN, ABN, VAT no.…) and "Tax Invoice" where the law asks for it, with a note where official e-invoicing is required. 63 countries, all editable.
 - **Legally complete tax invoices.** Invoices follow the rules of your country: in the UAE (FTA), the Gulf and India every line shows its unit, rate, amount, VAT rate, VAT and total with VAT, and the totals show the amount before VAT and the grand total. Tax numbers are checked as you type (a UAE TRN is 15 digits, with no "TRN" in front), and before downloading Paperless lists anything the law there asks for that's missing. You can still download anyway.
-- **Everything a real invoice carries.** Units (Pcs, Sets, Hrs…), an LPO or purchase order number, the date of supply, a due date or payment terms (Net 15 to 90 days, or on delivery), advance payments, and your signature and company stamp, uploaded or drawn.
-- **Correct maths.** Per-line and invoice discounts, several tax rates, advance payments, 160+ currencies, all calculated exactly with no floating point. Agreed a price with tax included, or a round grand total? Paperless works the rates back from it.
+- **Everything a real invoice carries.** Units (Pcs, Sets, Hrs…), an LPO or purchase order number, the date of supply, a due date or payment terms (Net 15 to 90 days, or on delivery), advance payments, and your signature and company stamp, uploaded or drawn, printed side by side.
+- **Correct maths.** Per-line and invoice discounts, several tax rates, advance payments, 160+ currencies, all calculated exactly with no floating point. Tax added on top or included, chosen per invoice: with tax included, Paperless works the rates back from the price you agreed, or from a round grand total, and every step can be undone and redone.
 - **Get paid faster.** The payment methods you accept (bank transfer, card, cash, cheque), your bank details (bank, account name and number, IBAN, SWIFT) and a QR code: a payment link, UPI for rupee invoices or SEPA for euro invoices. Change them on one invoice without touching your defaults.
-- **Total in words**, e.g. "Three thousand two hundred forty-seven US dollars and seventy-six cents", in lakhs and crores for rupees and with "only" where that's customary.
+- **Total in words**, e.g. "Three Thousand Two Hundred Forty-Seven US Dollars And Seventy-Six Cents.", every word capitalised and ending in a full stop, in lakhs and crores for rupees and with "Only" where that's customary.
 - **History.** Every downloaded invoice is kept as sent, with paid, unpaid and overdue tracking, search, re-download and duplicate.
 - **Saved clients** fill in "Bill to" for you, and invoice numbers count up on their own.
 - **Works offline** once visited. Light and dark themes, phone to desktop.
@@ -58,7 +58,7 @@ The calculation engine in [`src/domain`](src/domain) is plain TypeScript with no
 - **Currency-aware precision.** Rounds to the currency's minor unit: cents for USD, whole yen for JPY, fils (3 decimals) for KWD.
 - **Discounts before tax.** An invoice-level discount is split across lines in proportion, so each tax rate is charged on the correct amount, and the shares always add up exactly.
 - **Tax per rate, or per line.** Tax is rounded once per rate on the combined amount. Invoices that print tax on every line (Gulf and Indian tax invoices) round each line's tax instead and add those up, so the printed lines always match the totals.
-- **Working back from a total.** "Tax included" lowers every rate by the same proportion so the tax fits inside the current total (100.00 plus 5% becomes 95.24 plus 4.76). A grand total typed in raises or lowers the rates to reach it. Rates keep the currency's decimals, so with large quantities a rate or two may land a few fils off the exact proportion to make the total exact; if no two-decimal rates give that total, the closest is used and Paperless says so.
+- **Working back from a total.** When an invoice is set to "Tax included", "Include VAT in …" lowers every rate by the same proportion so the tax fits inside the current total (100.00 plus 5% becomes 95.24 plus 4.76). A grand total typed in raises or lowers the rates to reach it. Rates keep the currency's decimals, so with large quantities a rate or two may land a few fils off the exact proportion to make the total exact; if no two-decimal rates give that total, the closest is used and Paperless says so.
 - **Rounding** is half away from zero at each step.
 
 ## How the PDF preview works
@@ -112,7 +112,7 @@ flowchart LR
 | --------------- | ------------------------------------------------------------------------------------------------ |
 | `src/domain`    | Framework-free logic and Zod schemas: exact money maths, tax, numbering, export checks, QR codes |
 | `src/storage`   | Persisted stores with versioned migrations, cross-tab sync, backup and restore                   |
-| `src/templates` | The three PDF templates, written once for both the preview and the download                      |
+| `src/templates` | The six PDF templates, written once for both the preview and the download                        |
 | `src/services`  | The PDF worker and pdf.js rasterising, loaded on demand                                          |
 | `src/features`  | Editor, preview, history, clients, business, settings, onboarding and export                     |
 | `src/app`       | Shell, navigation, top bar, update prompt and error boundary                                     |
@@ -165,6 +165,7 @@ npm run dev        # start the dev server at http://localhost:5173
 - [x] **M10** Production release (v1.0.0)
 - [x] **v1.1** Country presets, six templates, payment methods, amount in words, preview zoom
 - [x] **v1.2** Legally complete tax invoices (UAE FTA format), legal checks, tax included and grand-total fitting, units, LPO, payment terms, signature and stamp, payment details per invoice
+- [x] **v1.3** Tax added on top or included per invoice, undo and redo for rate changes, a PDF colour picker, amount in words in title case, signature beside the stamp
 
 ## License
 

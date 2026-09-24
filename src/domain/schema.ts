@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { DEFAULT_ACCENT, HEX_COLOR } from './colors'
 import { MONEY_SCALE, QUANTITY_SCALE, RATE_SCALE } from './decimal'
 
 // Zod can compile validators with `new Function`, which the site's Content-Security-Policy
@@ -106,6 +107,15 @@ export const lineItemSchema = z.object({
 /** A due date, or payment terms ("Net 30 days") printed in its place. */
 export const DUE_MODES = ['date', 'terms'] as const
 
+/**
+ * What the client agreed to: prices with tax added on top, or with tax included. Rates always
+ * print before tax; "included" offers to work them back from the agreed total (pricing.ts).
+ */
+export const TAX_PRICING = ['added', 'included'] as const
+
+/** The PDF's theme colour, as six-digit lowercase hex. */
+export const accentColorSchema = z.string().regex(HEX_COLOR).default(DEFAULT_ACCENT)
+
 export const invoiceSchema = z.object({
   id: z.string().min(1),
   number: z.string().trim(),
@@ -133,7 +143,7 @@ export const invoiceSchema = z.object({
   title: z.string().trim().default('Invoice'),
   /** How tax numbers are labelled for the sender's country, e.g. "TRN", "GSTIN", "VAT no.". */
   taxIdLabel: z.string().trim().default('Tax ID'),
-  /** Print the total in words, e.g. "One thousand US dollars only". */
+  /** Print the total in words, e.g. "One Thousand US Dollars.". */
   amountInWords: z.boolean().default(false),
   /**
    * Added in 1.2, again with defaults that leave older invoices printing exactly as they did.
@@ -156,6 +166,9 @@ export const invoiceSchema = z.object({
    * rounded line by line, so the printed lines add up to the totals.
    */
   showLineTax: z.boolean().default(false),
+  /** Added in 1.3. */
+  taxPricing: z.enum(TAX_PRICING).default('added'),
+  accentColor: accentColorSchema,
 })
 
 export type Party = z.infer<typeof partySchema>
@@ -165,6 +178,7 @@ export type Invoice = z.infer<typeof invoiceSchema>
 export type TemplateId = (typeof TEMPLATE_IDS)[number]
 export type TaxMode = (typeof TAX_MODES)[number]
 export type DueMode = (typeof DUE_MODES)[number]
+export type TaxPricing = (typeof TAX_PRICING)[number]
 export type PaymentDetails = z.infer<typeof paymentDetailsSchema>
 export type QrMethod = (typeof QR_METHODS)[number]
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number]

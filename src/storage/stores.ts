@@ -1,3 +1,4 @@
+import { DEFAULT_ACCENT } from '../domain/colors'
 import {
   createInvoiceDraft,
   duplicateInvoice,
@@ -133,6 +134,7 @@ export const initialSettings: Settings = {
   dueMode: 'date',
   showLineTax: false,
   signInvoices: false,
+  accentColor: DEFAULT_ACCENT,
 }
 
 /** "Tax invoice" as saved before 1.2, when the second word wasn't capitalised. */

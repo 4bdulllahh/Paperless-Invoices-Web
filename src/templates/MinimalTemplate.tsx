@@ -87,7 +87,6 @@ const s = StyleSheet.create({
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 0.75,
-    borderTopColor: INK,
   },
   balanceText: { fontWeight: 600, fontSize: 12 },
   words: { marginTop: 12, fontSize: 8.5, color: MUTED },
@@ -107,6 +106,7 @@ export function MinimalTemplate({ view, logo, payment, qr, signature, stamp }: T
   const columns = itemColumns(view, 483)
   const balance = view.totals.find((row) => row.kind === 'balance')!
   const summary = view.totals.filter((row) => row.kind !== 'balance')
+  const { theme } = view
 
   return (
     <Page size="A4" style={s.page}>
@@ -122,7 +122,7 @@ export function MinimalTemplate({ view, logo, payment, qr, signature, stamp }: T
         {logo && <LogoImage logo={logo} maxWidth={110} maxHeight={40} />}
       </View>
 
-      <Text style={s.title}>{view.title}</Text>
+      <Text style={[s.title, { color: theme.accentOnPaper }]}>{view.title}</Text>
       <View style={s.facts}>
         {[['Number', view.number], ...view.facts.map((fact) => [fact.label, fact.value])].map(
           ([label, value]) => (
@@ -185,7 +185,7 @@ export function MinimalTemplate({ view, logo, payment, qr, signature, stamp }: T
               <Text>{row.value}</Text>
             </View>
           ))}
-          <View style={s.balance}>
+          <View style={[s.balance, { borderTopColor: theme.accentOnPaper }]}>
             <Text style={s.balanceText}>{balance.label}</Text>
             <Text style={s.balanceText}>{balance.value}</Text>
           </View>

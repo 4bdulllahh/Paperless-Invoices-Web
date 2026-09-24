@@ -32,6 +32,7 @@ const settings: Settings = {
   dueMode: 'terms',
   showLineTax: true,
   signInvoices: true,
+  accentColor: '#1f3a68',
 }
 
 describe('createInvoiceDraft', () => {
@@ -66,6 +67,9 @@ describe('createInvoiceDraft', () => {
       payment: null,
       poNumber: '',
       supplyDate: '',
+      // Tax included or added on top is agreed per client, so it has no default.
+      taxPricing: 'added',
+      accentColor: '#1f3a68',
     })
     expect(draft.items).toEqual([createLineItem('line', '20')])
   })
@@ -246,6 +250,7 @@ describe('followDefaults', () => {
       dueMode: 'date' as const,
       showLineTax: false,
       signInvoices: false,
+      accentColor: '#11867f',
     }
     expect(followDefaults(draft, settings, after)).toMatchObject({
       currency: 'EUR',
@@ -263,6 +268,7 @@ describe('followDefaults', () => {
       dueDate: '2026-10-07',
       number: 'A-0009',
       items: [{ taxRate: '23' }],
+      accentColor: '#11867f',
     })
   })
 
@@ -272,6 +278,7 @@ describe('followDefaults', () => {
       currency: 'CHF',
       dueDate: '2026-12-31',
       items: [{ ...draft.items[0], taxRate: '5' }],
+      accentColor: '#7b3f8c',
     }
     const next = followDefaults(edited, settings, {
       ...settings,
@@ -279,12 +286,14 @@ describe('followDefaults', () => {
       paymentTermsDays: 7,
       defaultTaxRate: '23',
       templateId: 'minimal',
+      accentColor: '#c8102e',
     })
     expect(next).toMatchObject({
       currency: 'CHF',
       dueDate: '2026-12-31',
       items: [{ taxRate: '5' }],
       templateId: 'minimal',
+      accentColor: '#7b3f8c',
     })
   })
 

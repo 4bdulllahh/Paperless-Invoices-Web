@@ -12,6 +12,8 @@ import { CraneMark } from '../../components/brand/CraneMark'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
+import { ColorPicker } from '../../components/ui/ColorPicker'
+import { DEFAULT_ACCENT } from '../../domain/colors'
 import { TEMPLATE_OPTIONS } from '../../domain/options'
 import type { TemplateId } from '../../domain/schema'
 import { cn } from '../../lib/cn'
@@ -30,6 +32,10 @@ export function PreviewPane({ className }: { className?: string }) {
   const updateInvoice = useDraftStore((state) => state.updateInvoice)
   const setTemplate = (templateId: TemplateId) =>
     updateInvoice((invoice) => ({ ...invoice, templateId }))
+  // So is the colour; new invoices start with the one chosen in Settings.
+  const accent = useDraftStore((state) => state.invoice?.accentColor ?? DEFAULT_ACCENT)
+  const setAccent = (accentColor: string) =>
+    updateInvoice((invoice) => ({ ...invoice, accentColor }))
   const pane = useRef<HTMLDivElement>(null)
   const zoom = usePreviewZoom(pane)
   const { pages, status, retry } = useLivePdfPreview(zoom.resolution)
@@ -51,24 +57,28 @@ export function PreviewPane({ className }: { className?: string }) {
             {status === 'loading' ? 'Preparing preview…' : 'Updating…'}
           </span>
         </div>
-        <label className="relative flex items-center">
-          <span className="sr-only">Invoice template</span>
-          <select
-            value={template}
-            onChange={(e) => setTemplate(e.target.value as TemplateId)}
-            className="h-9 cursor-pointer appearance-none rounded-full border border-line-strong bg-surface pr-9 pl-4 text-sm font-medium text-fg hover:bg-surface-muted focus:border-accent focus:outline-none"
-          >
-            {TEMPLATE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <ChevronDown
-            className="pointer-events-none absolute right-3 size-4 text-fg-subtle"
-            aria-hidden="true"
-          />
-        </label>
+        {/* Stays at the right when it wraps, so the colour panel opens inside the pane. */}
+        <div className="ml-auto flex items-center gap-2">
+          <label className="relative flex items-center">
+            <span className="sr-only">Invoice template</span>
+            <select
+              value={template}
+              onChange={(e) => setTemplate(e.target.value as TemplateId)}
+              className="h-9 cursor-pointer appearance-none rounded-full border border-line-strong bg-surface pr-9 pl-4 text-sm font-medium text-fg hover:bg-surface-muted focus:border-accent focus:outline-none"
+            >
+              {TEMPLATE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute right-3 size-4 text-fg-subtle"
+              aria-hidden="true"
+            />
+          </label>
+          <ColorPicker label="PDF colour" value={accent} onChange={setAccent} />
+        </div>
       </div>
 
       <div
@@ -109,7 +119,7 @@ export function PreviewPane({ className }: { className?: string }) {
               />
             ))
           ) : (
-            <SkeletonPage template={template} width={zoom.pageWidth} />
+            <SkeletonPage template={template} accent={accent} width={zoom.pageWidth} />
           )}
         </div>
       </div>
@@ -171,7 +181,15 @@ function Bar({ w, className }: { w: string; className?: string }) {
   )
 }
 
-function SkeletonPage({ template, width }: { template: TemplateId; width: string }) {
+function SkeletonPage({
+  template,
+  accent,
+  width,
+}: {
+  template: TemplateId
+  accent: string
+  width: string
+}) {
   const modern = template === 'modern'
   const classic = template === 'classic'
 
@@ -195,7 +213,11 @@ function SkeletonPage({ template, width }: { template: TemplateId; width: string
         )}
       >
         <div className={cn('flex items-center gap-[2cqw]', classic && 'flex-col')}>
-          <CraneMark className={cn('w-[11cqw]', modern && 'text-flame')} strokeWidth={1} />
+          <CraneMark
+            className="w-[11cqw]"
+            style={modern ? { color: accent } : undefined}
+            strokeWidth={1}
+          />
           {!classic && <Bar w="18cqw" className={modern ? 'bg-cream/25' : undefined} />}
         </div>
         <div className={cn('flex flex-col items-end gap-[1.5cqw]', classic && 'items-center')}>
@@ -263,8 +285,9 @@ function SkeletonPage({ template, width }: { template: TemplateId; width: string
             <div
               className={cn(
                 'mt-[1cqw] flex items-center justify-between rounded-[1.2cqw] p-[2.2cqw]',
-                modern ? 'bg-flame' : 'border-t-[0.4cqw] border-ink px-0',
+                !modern && 'border-t-[0.4cqw] border-ink px-0',
               )}
+              style={modern ? { backgroundColor: accent } : undefined}
             >
               <Bar w="12cqw" className={modern ? 'bg-ink/30' : 'bg-[#d6d0c4]'} />
               <Bar w="14cqw" className={modern ? 'bg-ink/50' : 'bg-ink/60'} />

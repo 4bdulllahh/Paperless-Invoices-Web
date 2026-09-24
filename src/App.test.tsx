@@ -1,9 +1,16 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { THEME_STORAGE_KEY } from './hooks/useTheme'
 import { clearAllData } from './storage/backup'
 import { useDraftStore, useProfileStore } from './storage/stores'
+
+// The shell is under test, not the PDF: pdf.js can't start its worker in jsdom, and on a busy
+// run the live preview gets far enough to try.
+vi.mock('./services/pdf', () => ({
+  renderPreview: () => new Promise(() => {}),
+  warmUp: () => {},
+}))
 
 beforeEach(() => clearAllData())
 

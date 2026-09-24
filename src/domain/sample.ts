@@ -1,3 +1,4 @@
+import { DEFAULT_ACCENT } from './colors'
 import type { Invoice } from './schema'
 
 /**
@@ -77,6 +78,8 @@ export function createSampleInvoice(overrides: Partial<Invoice> = {}): Invoice {
     payment: null,
     signed: false,
     showLineTax: false,
+    taxPricing: 'added',
+    accentColor: DEFAULT_ACCENT,
     ...overrides,
   }
 }

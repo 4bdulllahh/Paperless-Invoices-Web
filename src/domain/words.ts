@@ -1,9 +1,10 @@
 import { currencyDigits } from './money'
 
 /**
- * Amounts in words, as many invoices print them ("Three thousand two hundred forty-seven US
- * dollars and seventy-six cents"). South Asian currencies count in lakhs and crores; there,
- * and in the Gulf, amounts end with "only", as is customary.
+ * Amounts in words, as invoices print them: every word capitalised and a full stop at the end
+ * ("Three Thousand Two Hundred Forty-Seven US Dollars And Seventy-Six Cents."). South Asian
+ * currencies count in lakhs and crores; there, and in the Gulf, amounts end with "Only", as is
+ * customary.
  */
 
 const ONES = [
@@ -130,11 +131,17 @@ const ONLY_CURRENCIES = new Set([
   'EGP',
 ])
 
-const capitalize = (text: string) => text[0].toUpperCase() + text.slice(1)
+/** Capitalises the first letter of every word, both halves of "forty-seven" included. */
+const titleCase = (text: string) =>
+  text.replace(
+    /(^|[\s-])(\p{L})/gu,
+    (_, before: string, letter: string) => before + letter.toUpperCase(),
+  )
 
 /**
- * An amount in minor units (cents, fils…) in words. Currencies without their own unit names use
- * the English currency name, with the minor part as a fraction: "… Czech korunas and 45/100".
+ * An amount in minor units (cents, fils…) in words, as a sentence. Currencies without their own
+ * unit names use the English currency name, with the minor part as a fraction: "… Czech Koruna
+ * And 45/100.".
  */
 export function amountInWords(minor: number, currency: string): string {
   const digits = currencyDigits(currency)
@@ -158,5 +165,5 @@ export function amountInWords(minor: number, currency: string): string {
     if (cents > 0) text += ` and ${String(cents).padStart(digits, '0')}/${factor}`
   }
   if (ONLY_CURRENCIES.has(currency)) text += ' only'
-  return capitalize(text)
+  return `${titleCase(text)}.`
 }

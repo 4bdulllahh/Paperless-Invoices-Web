@@ -245,7 +245,7 @@ describe.each(TEMPLATE_IDS)('%s template', (templateId) => {
     expect(text).toContain('Cheques payable to Acme Studio')
     expectPrinted(
       text,
-      'Amount in words: Four thousand two hundred forty-seven dirhams and seventy-six fils only',
+      'Amount in words: Four Thousand Two Hundred Forty-Seven Dirhams And Seventy-Six Fils Only.',
     )
     expect(info.Title).toBe('Tax Invoice INV-2026-0042')
   })
@@ -286,6 +286,21 @@ describe.each(TEMPLATE_IDS)('%s template', (templateId) => {
     ]) {
       expectPrinted(text, expected)
     }
+  })
+
+  it.each([
+    ['dark', '#1f3a68'],
+    ['pale', '#fff3a0'],
+  ])('prints in a %s theme colour, still on one page', async (_, accentColor) => {
+    const { pages, text } = await render(
+      { ...uaeInvoice(templateId), accentColor },
+      `${templateId}-uae-${accentColor.slice(1)}`,
+      uaeBank,
+      { signature: logo, stamp: logo },
+    )
+    expect(pages).toHaveLength(1)
+    expectPrinted(text, 'Balance due')
+    expectPrinted(text, 'Authorised signature')
   })
 
   it('keeps every line of a long UAE tax invoice', async () => {
